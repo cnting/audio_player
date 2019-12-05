@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-final MethodChannel _channel = const MethodChannel('audio_player')
+final MethodChannel _channel = const MethodChannel('cnting.com/audio_player')
   ..invokeMethod<void>('init');
 
 class DurationRange {
@@ -120,6 +120,21 @@ class AudioPlayerValue {
 enum DataSourceType { asset, network, file }
 
 class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
+
+  int _playerId;
+  final String dataSource;
+
+  final DataSourceType dataSourceType;
+
+  final String package;
+  Timer _updatePositionTimer;
+  bool _isDisposed = false;
+  Completer<void> _creatingCompleter;
+  StreamSubscription<dynamic> _eventSubscription;
+  _AudioAppLifeCycleObserver _lifeCycleObserver;
+
+  int get playerId => _playerId;
+
   AudioPlayerController.asset(this.dataSource, {this.package})
       : dataSourceType = DataSourceType.asset,
         super(AudioPlayerValue(duration: null));
@@ -134,21 +149,6 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
         dataSourceType = DataSourceType.file,
         package = null,
         super(AudioPlayerValue(duration: null));
-
-  int _textureId;
-  final String dataSource;
-
-  final DataSourceType dataSourceType;
-
-  final String package;
-  Timer _timer;
-  bool _isDisposed = false;
-  Completer<void> _creatingCompleter;
-  StreamSubscription<dynamic> _eventSubscription;
-  _AudioAppLifeCycleObserver _lifeCycleObserver;
-
-  @visibleForTesting
-  int get textureId => _textureId;
 
   Future<void> initialize() async {
     _lifeCycleObserver = _AudioAppLifeCycleObserver(this);
@@ -173,7 +173,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       'create',
       dataSourceDescription,
     );
-    _textureId = response['textureId'];
+    _playerId = response['playerId'];
     _creatingCompleter.complete(null);
     final Completer<void> initializingCompleter = Completer<void>();
 
@@ -204,7 +204,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
           break;
         case 'completed':
           value = value.copyWith(isPlaying: false, position: value.duration);
-          _cancelTimer();
+          _cancelUpdatePositionTimer();
           break;
         case 'bufferingUpdate':
           final List<dynamic> values = map['values'];
@@ -224,10 +224,10 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
         case 'playStateChanged':
           final bool isPlaying = map['isPlaying'];
 
-          if (isPlaying && !(_timer?.isActive ?? false)) {
-            _startTimer();
+          if (isPlaying && !(_updatePositionTimer?.isActive ?? false)) {
+            _startUpdatePositionTimer();
           } else if (!isPlaying) {
-            _cancelTimer();
+            _cancelUpdatePositionTimer();
           }
           value = value.copyWith(
               isPlaying: isPlaying,
@@ -245,17 +245,17 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
         value = value.copyWith(isPlaying: false, errorDescription: e.message);
       }
 
-      _cancelTimer();
+      _cancelUpdatePositionTimer();
     }
 
-    _eventSubscription = _eventChannelFor(_textureId)
+    _eventSubscription = _eventChannelFor(_playerId)
         .receiveBroadcastStream()
         .listen(eventListener, onError: errorListener);
     return initializingCompleter.future;
   }
 
-  EventChannel _eventChannelFor(int textureId) {
-    return EventChannel('audioPlayer/audioEvents$textureId');
+  EventChannel _eventChannelFor(int playerId) {
+    return EventChannel('cnting.com/audio_player/audioEvents$playerId');
   }
 
   @override
@@ -264,11 +264,11 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       await _creatingCompleter.future;
       if (!_isDisposed) {
         _isDisposed = true;
-        _cancelTimer();
+        _cancelUpdatePositionTimer();
         await _eventSubscription?.cancel();
         await _channel.invokeMethod<void>(
           'dispose',
-          <String, dynamic>{'textureId': _textureId},
+          <String, dynamic>{'playerId': _playerId},
         );
       }
       _lifeCycleObserver.dispose();
@@ -296,7 +296,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     }
     _channel.invokeMethod<void>(
       'setLooping',
-      <String, dynamic>{'textureId': _textureId, 'looping': value.isLooping},
+      <String, dynamic>{'playerId': _playerId, 'looping': value.isLooping},
     );
   }
 
@@ -307,19 +307,19 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     if (isPlay) {
       await _channel.invokeMethod<void>(
         'play',
-        <String, dynamic>{'textureId': _textureId},
+        <String, dynamic>{'playerId': _playerId},
       );
     } else {
-      _cancelTimer();
+      _cancelUpdatePositionTimer();
       await _channel.invokeMethod<void>(
         'pause',
-        <String, dynamic>{'textureId': _textureId},
+        <String, dynamic>{'playerId': _playerId},
       );
     }
   }
 
-  _startTimer() {
-    _timer = Timer.periodic(
+  _startUpdatePositionTimer() {
+    _updatePositionTimer = Timer.periodic(
       const Duration(milliseconds: 500),
       (Timer timer) async {
         if (_isDisposed) {
@@ -334,8 +334,8 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     );
   }
 
-  _cancelTimer() {
-    _timer?.cancel();
+  _cancelUpdatePositionTimer() {
+    _updatePositionTimer?.cancel();
   }
 
   Future<void> _applyVolume() async {
@@ -344,7 +344,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     }
     await _channel.invokeMethod<void>(
       'setVolume',
-      <String, dynamic>{'textureId': _textureId, 'volume': value.volume},
+      <String, dynamic>{'playerId': _playerId, 'volume': value.volume},
     );
   }
 
@@ -356,7 +356,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     return Duration(
       milliseconds: await _channel.invokeMethod<int>(
         'position',
-        <String, dynamic>{'textureId': _textureId},
+        <String, dynamic>{'playerId': _playerId},
       ),
     );
   }
@@ -371,14 +371,13 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       moment = const Duration();
     }
     await _channel.invokeMethod<void>('seekTo', <String, dynamic>{
-      'textureId': _textureId,
+      'playerId': _playerId,
       'location': moment.inMilliseconds,
     });
     value = value.copyWith(position: moment);
   }
 
   /// Sets the audio volume of [this].
-  ///
   /// [volume] indicates a value between 0.0 (silent) and 1.0 (full volume) on a
   /// linear scale.
   Future<void> setVolume(double volume) async {
@@ -394,7 +393,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     value = value.copyWith(speed: speed);
     await _channel.invokeMethod<void>(
       'setSpeed',
-      <String, dynamic>{'textureId': _textureId, 'speed': speed},
+      <String, dynamic>{'playerId': _playerId, 'speed': speed},
     );
   }
 }
@@ -431,225 +430,4 @@ class _AudioAppLifeCycleObserver extends Object with WidgetsBindingObserver {
   }
 }
 
-class AudioPlayer extends StatefulWidget {
-  AudioPlayer(this.controller);
 
-  final AudioPlayerController controller;
-
-  @override
-  _AudioPlayerState createState() => _AudioPlayerState();
-}
-
-class _AudioPlayerState extends State<AudioPlayer> {
-  _AudioPlayerState() {
-    _listener = () {
-      final int newTextureId = widget.controller.textureId;
-      if (newTextureId != _textureId) {
-        setState(() {
-          _textureId = newTextureId;
-        });
-      }
-    };
-  }
-
-  VoidCallback _listener;
-  int _textureId;
-
-  @override
-  void initState() {
-    super.initState();
-    _textureId = widget.controller.textureId;
-    // Need to listen for initialization events since the actual texture ID
-    // becomes available after asynchronous initialization finishes.
-    widget.controller.addListener(_listener);
-  }
-
-  @override
-  void didUpdateWidget(AudioPlayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    oldWidget.controller.removeListener(_listener);
-    _textureId = widget.controller.textureId;
-    widget.controller.addListener(_listener);
-  }
-
-  @override
-  void deactivate() {
-    super.deactivate();
-    widget.controller.removeListener(_listener);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _textureId == null ? Container() : Texture(textureId: _textureId);
-  }
-}
-
-class AudioProgressColors {
-  AudioProgressColors({
-    this.playedColor = const Color.fromRGBO(255, 0, 0, 0.7),
-    this.bufferedColor = const Color.fromRGBO(50, 50, 200, 0.2),
-    this.backgroundColor = const Color.fromRGBO(200, 200, 200, 0.5),
-  });
-
-  final Color playedColor;
-  final Color bufferedColor;
-  final Color backgroundColor;
-}
-
-class _AudioScrubber extends StatefulWidget {
-  _AudioScrubber({
-    @required this.child,
-    @required this.controller,
-  });
-
-  final Widget child;
-  final AudioPlayerController controller;
-
-  @override
-  _AudioScrubberState createState() => _AudioScrubberState();
-}
-
-class _AudioScrubberState extends State<_AudioScrubber> {
-  bool _controllerWasPlaying = false;
-
-  AudioPlayerController get controller => widget.controller;
-
-  @override
-  Widget build(BuildContext context) {
-    void seekToRelativePosition(Offset globalPosition) {
-      final RenderBox box = context.findRenderObject();
-      final Offset tapPos = box.globalToLocal(globalPosition);
-      final double relative = tapPos.dx / box.size.width;
-      final Duration position = controller.value.duration * relative;
-      controller.seekTo(position);
-    }
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      child: widget.child,
-      onHorizontalDragStart: (DragStartDetails details) {
-        if (!controller.value.initialized) {
-          return;
-        }
-        _controllerWasPlaying = controller.value.isPlaying;
-        if (_controllerWasPlaying) {
-          controller.pause();
-        }
-      },
-      onHorizontalDragUpdate: (DragUpdateDetails details) {
-        if (!controller.value.initialized) {
-          return;
-        }
-        seekToRelativePosition(details.globalPosition);
-      },
-      onHorizontalDragEnd: (DragEndDetails details) {
-        if (_controllerWasPlaying) {
-          controller.play();
-        }
-      },
-      onTapDown: (TapDownDetails details) {
-        if (!controller.value.initialized) {
-          return;
-        }
-        seekToRelativePosition(details.globalPosition);
-      },
-    );
-  }
-}
-
-class AudioProgressIndicator extends StatefulWidget {
-  AudioProgressIndicator(
-    this.controller, {
-    AudioProgressColors colors,
-    this.allowScrubbing,
-    this.padding = const EdgeInsets.only(top: 5.0),
-  }) : colors = colors ?? AudioProgressColors();
-
-  final AudioPlayerController controller;
-  final AudioProgressColors colors;
-  final bool allowScrubbing;
-  final EdgeInsets padding;
-
-  @override
-  _AudioProgressIndicatorState createState() => _AudioProgressIndicatorState();
-}
-
-class _AudioProgressIndicatorState extends State<AudioProgressIndicator> {
-  _AudioProgressIndicatorState() {
-    listener = () {
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
-    };
-  }
-
-  VoidCallback listener;
-
-  AudioPlayerController get controller => widget.controller;
-
-  AudioProgressColors get colors => widget.colors;
-
-  @override
-  void initState() {
-    super.initState();
-    controller.addListener(listener);
-  }
-
-  @override
-  void deactivate() {
-    controller.removeListener(listener);
-    super.deactivate();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Widget progressIndicator;
-    if (controller.value.initialized) {
-      final int duration = controller.value.duration.inMilliseconds;
-      final int position = controller.value.position.inMilliseconds;
-
-      int maxBuffering = 0;
-      for (DurationRange range in controller.value.buffered) {
-        final int end = range.end.inMilliseconds;
-        if (end > maxBuffering) {
-          maxBuffering = end;
-        }
-      }
-
-      progressIndicator = Stack(
-        fit: StackFit.passthrough,
-        children: <Widget>[
-          LinearProgressIndicator(
-            value: maxBuffering / duration,
-            valueColor: AlwaysStoppedAnimation<Color>(colors.bufferedColor),
-            backgroundColor: colors.backgroundColor,
-          ),
-          LinearProgressIndicator(
-            value: position / duration,
-            valueColor: AlwaysStoppedAnimation<Color>(colors.playedColor),
-            backgroundColor: Colors.transparent,
-          ),
-        ],
-      );
-    } else {
-      progressIndicator = LinearProgressIndicator(
-        value: null,
-        valueColor: AlwaysStoppedAnimation<Color>(colors.playedColor),
-        backgroundColor: colors.backgroundColor,
-      );
-    }
-    final Widget paddedProgressIndicator = Padding(
-      padding: widget.padding,
-      child: progressIndicator,
-    );
-    if (widget.allowScrubbing) {
-      return _AudioScrubber(
-        child: paddedProgressIndicator,
-        controller: controller,
-      );
-    } else {
-      return paddedProgressIndicator;
-    }
-  }
-}

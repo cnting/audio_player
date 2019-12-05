@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-
-import 'package:flutter/services.dart';
-import 'package:audio_player/audio_player.dart';
+import 'package:audio_player/audio.dart';
 
 void main() => runApp(MyApp());
 
@@ -12,11 +9,18 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
+  AudioPlayerController audioPlayerController;
 
   @override
   void initState() {
     super.initState();
+    audioPlayerController = AudioPlayerController.network('http://audio04.dmhmusic.com/71_53_T10038816745_128_4_1_0_sdk-cpm/cn/0208/M00/E4/A0/ChR461172N6AXz4YAD_5Qa6UpzU759.mp3?xcode=8fe9e6abd2f1b33f5812077614fde6c013bb4bf');
+  }
+
+  @override
+  void dispose() {
+    audioPlayerController.dispose();
+    super.dispose();
   }
 
   @override
@@ -27,7 +31,7 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: AudioPlayer(audioPlayerController),
         ),
       ),
     );
