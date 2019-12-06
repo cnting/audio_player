@@ -33,6 +33,7 @@ class _DefaultPlayControllerState extends State<DefaultPlayController> {
       return Container();
     }
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
         _buildPlayPause(),
         _buildPosition(),
@@ -55,14 +56,11 @@ class _DefaultPlayControllerState extends State<DefaultPlayController> {
         height: _barHeight,
         color: Colors.transparent,
         margin: EdgeInsets.only(left: 8.0, right: 4.0),
-        padding: EdgeInsets.only(
-          left: 12.0,
-          right: 12.0,
-        ),
         child: Icon(
           _controller.value.isPlaying
               ? Icons.pause_circle_filled
               : Icons.play_circle_filled,
+          size: 40,
         ),
       ),
     );
@@ -94,7 +92,7 @@ class _DefaultPlayControllerState extends State<DefaultPlayController> {
         : Duration.zero;
 
     return Padding(
-      padding: EdgeInsets.only(right: 24.0),
+      padding: const EdgeInsets.only(right: 10.0),
       child: Text(
         '${formatDuration(position)} / ${formatDuration(duration)}',
         style: TextStyle(
@@ -107,11 +105,11 @@ class _DefaultPlayControllerState extends State<DefaultPlayController> {
   ///进度条
   Widget _buildProgressBar() {
     return Expanded(
-      child: Padding(
-        padding: EdgeInsets.only(right: 20.0),
-        child: AudioProgressIndicator(
-          _controller,
-        ),
+      child: AudioProgressIndicator(
+        _controller,
+        padding: EdgeInsets.zero,
+        colors:
+            AudioProgressColors(playedColor: Theme.of(context).primaryColor),
       ),
     );
   }

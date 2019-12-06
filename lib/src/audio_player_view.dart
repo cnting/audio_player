@@ -54,7 +54,9 @@ class _AudioPlayerState extends State<AudioPlayer> {
   @override
   Widget build(BuildContext context) {
     return _playerId == null
-        ? Container()
+        ? Container(
+            child: Text('playId为空'),
+          )
         : AudioPlayerControllerProvider(
             controller: widget.controller,
             child: widget.playController ?? DefaultPlayController(),
@@ -66,7 +68,8 @@ class AudioPlayerControllerProvider extends InheritedWidget {
   final AudioPlayerController controller;
 
   const AudioPlayerControllerProvider(
-      {Key key, @required this.controller, @required Widget child});
+      {Key key, @required this.controller, @required Widget child})
+      : super(key: key, child: child);
 
   @override
   bool updateShouldNotify(AudioPlayerControllerProvider oldWidget) {
@@ -157,7 +160,7 @@ class AudioProgressIndicator extends StatefulWidget {
   AudioProgressIndicator(
     this.controller, {
     AudioProgressColors colors,
-    this.allowScrubbing,
+    this.allowScrubbing = true,
     this.padding = const EdgeInsets.only(top: 5.0),
   }) : colors = colors ?? AudioProgressColors();
 

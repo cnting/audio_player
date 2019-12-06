@@ -2,6 +2,7 @@ package com.cnting.audio_player
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
@@ -128,12 +129,12 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 
 }
 
-class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel, dataSource: String, result: Result) {
+class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel, dataSource: String, private val result: Result) {
 
-    lateinit var exoPlayer: SimpleExoPlayer
-    lateinit var dataSourceFactory: DataSource.Factory
+    private lateinit var exoPlayer: SimpleExoPlayer
+    private lateinit var dataSourceFactory: DataSource.Factory
     private val eventSink = QueuingEventSink()
-    var dataSourceUri: Uri = Uri.parse(dataSource)
+    private var dataSourceUri: Uri = Uri.parse(dataSource)
     private var context: Context = c.applicationContext
     private var isInitialized = false
 
@@ -173,7 +174,7 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
 
         val event: MutableMap<String, Any> = HashMap()
         event["playerId"] = playerId
-        eventSink.success(event)
+        result.success(event)
     }
 
     private fun addExoPlayerListener() {
@@ -230,7 +231,7 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
         val event: MutableMap<String, Any> = HashMap()
         event["event"] = "bufferingUpdate"
         // iOS supports a list of buffered ranges, so here is a list with a single range.
-        event["values"] = listOf(0, exoPlayer.bufferedPosition)
+        event["values"] = listOf<Number>(0, exoPlayer.bufferedPosition)
         eventSink.success(event)
     }
 

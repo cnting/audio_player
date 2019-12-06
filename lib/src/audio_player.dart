@@ -120,13 +120,14 @@ class AudioPlayerValue {
 enum DataSourceType { asset, network, file }
 
 class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
-
   int _playerId;
   final String dataSource;
-
   final DataSourceType dataSourceType;
-
   final String package;
+  final bool autoInitialize;
+  final bool autoPlay;
+
+  final Duration startAt;
   Timer _updatePositionTimer;
   bool _isDisposed = false;
   Completer<void> _creatingCompleter;
@@ -135,20 +136,53 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
 
   int get playerId => _playerId;
 
-  AudioPlayerController.asset(this.dataSource, {this.package})
-      : dataSourceType = DataSourceType.asset,
-        super(AudioPlayerValue(duration: null));
+  AudioPlayerController._(this.dataSource, this.dataSourceType,
+      {this.package,
+      this.autoInitialize = true,
+      this.autoPlay = true,
+      this.startAt})
+      : super(AudioPlayerValue(duration: null)) {
+    _tryInitialize();
+  }
 
-  AudioPlayerController.network(this.dataSource)
-      : dataSourceType = DataSourceType.network,
-        package = null,
-        super(AudioPlayerValue(duration: null));
+  AudioPlayerController.asset(String dataSource,
+      {String package,
+      bool autoInitialize = true,
+      bool autoPlay = true,
+      Duration startAt})
+      : this._(dataSource, DataSourceType.asset,
+            package: package,
+            autoInitialize: autoInitialize,
+            autoPlay: autoPlay,
+            startAt: startAt);
 
-  AudioPlayerController.file(File file)
-      : dataSource = 'file://${file.path}',
-        dataSourceType = DataSourceType.file,
-        package = null,
-        super(AudioPlayerValue(duration: null));
+  AudioPlayerController.network(String dataSource,
+      {bool autoInitialize = true, bool autoPlay = true, Duration startAt})
+      : this._(dataSource, DataSourceType.network,
+            package: null,
+            autoInitialize: autoInitialize,
+            autoPlay: autoPlay,
+            startAt: startAt);
+
+  AudioPlayerController.file(File file,
+      {bool autoInitialize = true, bool autoPlay = true, Duration startAt})
+      : this._('file://${file.path}', DataSourceType.file,
+            package: null,
+            autoInitialize: autoInitialize,
+            autoPlay: autoPlay,
+            startAt: startAt);
+
+  Future _tryInitialize() async {
+    if ((autoInitialize || autoPlay) && !value.initialized) {
+      await initialize();
+    }
+    if (value.initialized && startAt != null) {
+      await seekTo(startAt);
+    }
+    if (autoPlay) {
+      await play();
+    }
+  }
 
   Future<void> initialize() async {
     _lifeCycleObserver = _AudioAppLifeCycleObserver(this);
@@ -208,8 +242,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
           break;
         case 'bufferingUpdate':
           final List<dynamic> values = map['values'];
-          value = value.copyWith(
-              buffered: values.map<DurationRange>(toDurationRange).toList());
+          value = value.copyWith(buffered: [toDurationRange(values)]);
           break;
         case 'bufferingStart':
           value = value.copyWith(
@@ -429,5 +462,3 @@ class _AudioAppLifeCycleObserver extends Object with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
   }
 }
-
-
