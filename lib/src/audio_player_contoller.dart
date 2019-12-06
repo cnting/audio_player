@@ -32,13 +32,16 @@ class _DefaultPlayControllerState extends State<DefaultPlayController> {
     if (_latestValue.hasError) {
       return Container();
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: <Widget>[
-        _buildPlayPause(),
-        _buildPosition(),
-        _buildProgressBar()
-      ],
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          _buildPlayPause(),
+          _buildPosition(),
+          _buildProgressBar()
+        ],
+      ),
     );
   }
 
@@ -55,7 +58,7 @@ class _DefaultPlayControllerState extends State<DefaultPlayController> {
       child: Container(
         height: _barHeight,
         color: Colors.transparent,
-        margin: EdgeInsets.only(left: 8.0, right: 4.0),
+        margin: EdgeInsets.only(right: 4.0),
         child: Icon(
           _controller.value.isPlaying
               ? Icons.pause_circle_filled

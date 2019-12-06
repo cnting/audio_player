@@ -3,19 +3,68 @@ import 'package:audio_player/audio.dart';
 
 void main() => runApp(MyApp());
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   @override
-  _MyAppState createState() => _MyAppState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text('Audio player'),
+        ),
+        body: Column(
+          children: <Widget>[
+            _Item('simple', _Simple()),
+            _Item('播放[0:00-1:00]片段', _Clip()),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _MyAppState extends State<MyApp> {
+class _Item extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _Item(this.title, this.child);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.only(left: 8, top: 8),
+          child: Text(
+            title,
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+        child,
+        Divider(
+          color: Colors.grey[600],
+        ),
+        Container()
+      ],
+    );
+  }
+}
+
+///最简单用法
+class _Simple extends StatefulWidget {
+  @override
+  _SimpleState createState() => _SimpleState();
+}
+
+class _SimpleState extends State<_Simple> {
+  String url =
+      'https://webfs.yun.kugou.com/201912060956/7b29de9dd3f89d4139a2957eab384c9b/G132/M08/11/01/ZJQEAFsYxiWAbsJdAEexGAxvqAc720.mp3';
   AudioPlayerController audioPlayerController;
 
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController.network(
-        'https://webfs.yun.kugou.com/201912060956/7b29de9dd3f89d4139a2957eab384c9b/G132/M08/11/01/ZJQEAFsYxiWAbsJdAEexGAxvqAc720.mp3');
+    audioPlayerController = AudioPlayerController.network(url);
   }
 
   @override
@@ -26,15 +75,38 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
-        body: Center(
-          child: AudioPlayer(audioPlayerController),
-        ),
-      ),
-    );
+    return AudioPlayer(audioPlayerController);
+  }
+}
+
+class _Clip extends StatefulWidget {
+  @override
+  _ClipState createState() => _ClipState();
+}
+
+class _ClipState extends State<_Clip> {
+  String url =
+      'https://webfs.yun.kugou.com/201912060956/7b29de9dd3f89d4139a2957eab384c9b/G132/M08/11/01/ZJQEAFsYxiWAbsJdAEexGAxvqAc720.mp3';
+  AudioPlayerController audioPlayerController;
+
+  @override
+  void initState() {
+    super.initState();
+    audioPlayerController = AudioPlayerController.network(url,
+        playConfig:
+            PlayConfig(clipRange: DurationRange.fromList([0, 1 * 60 * 1000])));
+    print(
+        '===>playConfig:${audioPlayerController.playConfig},autoPlay:${audioPlayerController.playConfig.autoPlay}');
+  }
+
+  @override
+  void dispose() {
+    audioPlayerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AudioPlayer(audioPlayerController);
   }
 }

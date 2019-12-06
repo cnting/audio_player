@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
+import com.google.android.exoplayer2.source.ClippingMediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
@@ -53,6 +54,10 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                 val id = System.currentTimeMillis()
                 val eventChannel = EventChannel(registrar.messenger(), "cnting.com/audio_player/audioEvents$id")
                 val player: AudioPlayer
+                var clipRange: List<Long>? = null
+                if (call.argument<Any?>("clipRange") != null) {
+                    clipRange = call.argument<List<Long>>("clipRange");
+                }
                 if (call.argument<Any?>("asset") != null) {
                     val assetLookupKey = if (call.argument<Any?>("package") != null) {
                         registrar.lookupKeyForAsset(call.argument("asset"), call.argument("package"))
@@ -63,12 +68,12 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                             registrar.context(),
                             id,
                             eventChannel,
-                            "asset:///$assetLookupKey", result
+                            "asset:///$assetLookupKey", result, clipRange
                     )
                     audioPlayers[id] = player
                 } else {
                     player = AudioPlayer(
-                            registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result)
+                            registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result, clipRange)
                     audioPlayers[id] = player
                 }
             }
@@ -129,7 +134,7 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 
 }
 
-class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel, dataSource: String, private val result: Result) {
+class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel, dataSource: String, private val result: Result, private val clipRange: List<Long>?) {
 
     private lateinit var exoPlayer: SimpleExoPlayer
     private lateinit var dataSourceFactory: DataSource.Factory
@@ -159,7 +164,12 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
         val mediaSourceFactory =
                 ProgressiveMediaSource.Factory(dataSourceFactory)
         val mediaSource = mediaSourceFactory.createMediaSource(dataSourceUri)
-        exoPlayer.prepare(mediaSource)
+        if (clipRange != null) {
+            val clippingSource = ClippingMediaSource(mediaSource, clipRange[0] * 1000, clipRange[1] * 1000)  //传入微秒
+            exoPlayer.prepare(clippingSource)
+        } else {
+            exoPlayer.prepare(mediaSource)
+        }
 
         eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(p0: Any?, sink: EventChannel.EventSink?) {

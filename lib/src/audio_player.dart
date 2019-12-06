@@ -10,6 +10,17 @@ final MethodChannel _channel = const MethodChannel('cnting.com/audio_player')
 class DurationRange {
   DurationRange(this.start, this.end);
 
+  factory DurationRange.fromValue(dynamic value) {
+    List<dynamic> pair = value;
+    return DurationRange(
+        Duration(milliseconds: pair[0]), Duration(milliseconds: pair[1]));
+  }
+
+  factory DurationRange.fromList(List<int> value) {
+    return DurationRange(
+        Duration(milliseconds: value[0]), Duration(milliseconds: value[1]));
+  }
+
   final Duration start;
   final Duration end;
 
@@ -23,6 +34,18 @@ class DurationRange {
 
   @override
   String toString() => '$runtimeType(start: $start, end: $end)';
+
+  List<dynamic> toList() {
+    return [start.inMilliseconds, end.inMilliseconds];
+  }
+
+  static DurationRange toDurationRange(dynamic value) {
+    final List<dynamic> pair = value;
+    return DurationRange(
+      Duration(milliseconds: pair[0]),
+      Duration(milliseconds: pair[1]),
+    );
+  }
 }
 
 class AudioPlayerValue {
@@ -117,6 +140,21 @@ class AudioPlayerValue {
   }
 }
 
+class PlayConfig {
+  final bool autoInitialize;
+  final bool autoPlay;
+  final Duration startAt;
+  final DurationRange clipRange; //play clip media
+
+  const PlayConfig(
+      {this.autoPlay = true,
+      this.autoInitialize = true,
+      this.startAt,
+      this.clipRange})
+      : assert(startAt == null || clipRange == null,
+            'Cannot provide both startAt and clipRange');
+}
+
 enum DataSourceType { asset, network, file }
 
 class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
@@ -124,10 +162,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   final String dataSource;
   final DataSourceType dataSourceType;
   final String package;
-  final bool autoInitialize;
-  final bool autoPlay;
-
-  final Duration startAt;
+  final PlayConfig playConfig;
   Timer _updatePositionTimer;
   bool _isDisposed = false;
   Completer<void> _creatingCompleter;
@@ -137,49 +172,35 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   int get playerId => _playerId;
 
   AudioPlayerController._(this.dataSource, this.dataSourceType,
-      {this.package,
-      this.autoInitialize = true,
-      this.autoPlay = true,
-      this.startAt})
+      {this.package, this.playConfig = const PlayConfig()})
       : super(AudioPlayerValue(duration: null)) {
     _tryInitialize();
   }
 
   AudioPlayerController.asset(String dataSource,
-      {String package,
-      bool autoInitialize = true,
-      bool autoPlay = true,
-      Duration startAt})
+      {String package, PlayConfig playConfig = const PlayConfig()})
       : this._(dataSource, DataSourceType.asset,
-            package: package,
-            autoInitialize: autoInitialize,
-            autoPlay: autoPlay,
-            startAt: startAt);
+            package: package, playConfig: playConfig);
 
   AudioPlayerController.network(String dataSource,
-      {bool autoInitialize = true, bool autoPlay = true, Duration startAt})
+      {PlayConfig playConfig = const PlayConfig()})
       : this._(dataSource, DataSourceType.network,
-            package: null,
-            autoInitialize: autoInitialize,
-            autoPlay: autoPlay,
-            startAt: startAt);
+            package: null, playConfig: playConfig);
 
   AudioPlayerController.file(File file,
-      {bool autoInitialize = true, bool autoPlay = true, Duration startAt})
+      {PlayConfig playConfig = const PlayConfig()})
       : this._('file://${file.path}', DataSourceType.file,
-            package: null,
-            autoInitialize: autoInitialize,
-            autoPlay: autoPlay,
-            startAt: startAt);
+            package: null, playConfig: playConfig);
 
   Future _tryInitialize() async {
-    if ((autoInitialize || autoPlay) && !value.initialized) {
+    if ((playConfig.autoInitialize || playConfig.autoPlay) &&
+        !value.initialized) {
       await initialize();
     }
-    if (value.initialized && startAt != null) {
-      await seekTo(startAt);
+    if (value.initialized && playConfig.startAt != null) {
+      await seekTo(playConfig.startAt);
     }
-    if (autoPlay) {
+    if (playConfig.autoPlay) {
       await play();
     }
   }
@@ -202,6 +223,10 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       case DataSourceType.file:
         dataSourceDescription = <String, dynamic>{'uri': dataSource};
     }
+    if (playConfig.clipRange != null) {
+      dataSourceDescription.addAll(
+          <String, dynamic>{'clipRange': playConfig.clipRange.toList()});
+    }
     final Map<String, dynamic> response =
         await _channel.invokeMapMethod<String, dynamic>(
       'create',
@@ -210,14 +235,6 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     _playerId = response['playerId'];
     _creatingCompleter.complete(null);
     final Completer<void> initializingCompleter = Completer<void>();
-
-    DurationRange toDurationRange(dynamic value) {
-      final List<dynamic> pair = value;
-      return DurationRange(
-        Duration(milliseconds: pair[0]),
-        Duration(milliseconds: pair[1]),
-      );
-    }
 
     void eventListener(dynamic event) {
       if (_isDisposed) {
@@ -242,7 +259,8 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
           break;
         case 'bufferingUpdate':
           final List<dynamic> values = map['values'];
-          value = value.copyWith(buffered: [toDurationRange(values)]);
+          value =
+              value.copyWith(buffered: [DurationRange.toDurationRange(values)]);
           break;
         case 'bufferingStart':
           value = value.copyWith(
