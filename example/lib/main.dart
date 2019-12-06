@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:audio_player/audio.dart';
 
+import 'custom_controller.dart';
+
 void main() => runApp(MyApp());
+
+String url =
+    'https://webfs.yun.kugou.com/201912060956/7b29de9dd3f89d4139a2957eab384c9b/G132/M08/11/01/ZJQEAFsYxiWAbsJdAEexGAxvqAc720.mp3';
 
 class MyApp extends StatelessWidget {
   @override
@@ -15,6 +20,7 @@ class MyApp extends StatelessWidget {
           children: <Widget>[
             _Item('simple', _Simple()),
             _Item('播放[0:00-1:00]片段', _Clip()),
+            _Item('自定义视觉', _CustomController()),
           ],
         ),
       ),
@@ -57,8 +63,6 @@ class _Simple extends StatefulWidget {
 }
 
 class _SimpleState extends State<_Simple> {
-  String url =
-      'https://webfs.yun.kugou.com/201912060956/7b29de9dd3f89d4139a2957eab384c9b/G132/M08/11/01/ZJQEAFsYxiWAbsJdAEexGAxvqAc720.mp3';
   AudioPlayerController audioPlayerController;
 
   @override
@@ -75,28 +79,28 @@ class _SimpleState extends State<_Simple> {
 
   @override
   Widget build(BuildContext context) {
-    return AudioPlayer(audioPlayerController);
+    return AudioPlayer(
+      audioPlayerController,
+    );
   }
 }
 
+///播放片段
 class _Clip extends StatefulWidget {
   @override
   _ClipState createState() => _ClipState();
 }
 
 class _ClipState extends State<_Clip> {
-  String url =
-      'https://webfs.yun.kugou.com/201912060956/7b29de9dd3f89d4139a2957eab384c9b/G132/M08/11/01/ZJQEAFsYxiWAbsJdAEexGAxvqAc720.mp3';
   AudioPlayerController audioPlayerController;
 
   @override
   void initState() {
     super.initState();
     audioPlayerController = AudioPlayerController.network(url,
-        playConfig:
-            PlayConfig(clipRange: DurationRange.fromList([0, 1 * 60 * 1000])));
-    print(
-        '===>playConfig:${audioPlayerController.playConfig},autoPlay:${audioPlayerController.playConfig.autoPlay}');
+        playConfig: PlayConfig(
+            clipRange: DurationRange.fromList([0, 1 * 60 * 1000]),
+            autoPlay: false));
   }
 
   @override
@@ -107,6 +111,44 @@ class _ClipState extends State<_Clip> {
 
   @override
   Widget build(BuildContext context) {
-    return AudioPlayer(audioPlayerController);
+    return AudioPlayer(
+      audioPlayerController,
+      playController: DefaultPlayControllerWidget(
+        allowScrubbing: false,
+      ),
+    );
+  }
+}
+
+///自定义ui
+class _CustomController extends StatefulWidget {
+  @override
+  _CustomControllerState createState() => _CustomControllerState();
+}
+
+class _CustomControllerState extends State<_CustomController> {
+  AudioPlayerController audioPlayerController;
+
+  @override
+  void initState() {
+    super.initState();
+    audioPlayerController = AudioPlayerController.network(url,
+        playConfig: PlayConfig(autoPlay: false));
+  }
+
+  @override
+  void dispose() {
+    audioPlayerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: AudioPlayer(
+        audioPlayerController,
+        playController: CustomPlayController(),
+      ),
+    );
   }
 }

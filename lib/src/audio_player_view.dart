@@ -1,4 +1,4 @@
-import 'package:audio_player/src/audio_player_contoller.dart';
+import 'package:audio_player/src/audio_player_contoller_view.dart';
 import 'package:flutter/material.dart';
 
 import 'audio_player.dart';
@@ -55,11 +55,11 @@ class _AudioPlayerState extends State<AudioPlayer> {
   Widget build(BuildContext context) {
     return _playerId == null
         ? Container(
-            child: Text('playId为空'),
-          )
+//            child: Text('playId为空'),
+            )
         : AudioPlayerControllerProvider(
             controller: widget.controller,
-            child: widget.playController ?? DefaultPlayController(),
+            child: widget.playController ?? DefaultPlayControllerWidget(),
           );
   }
 }
@@ -85,7 +85,7 @@ class AudioPlayerControllerProvider extends InheritedWidget {
 
 class AudioProgressColors {
   AudioProgressColors({
-    this.playedColor = const Color.fromRGBO(255, 0, 0, 0.7),
+    this.playedColor = const Color.fromRGBO(120, 120, 255, 0.7),
     this.bufferedColor = const Color.fromRGBO(50, 50, 200, 0.2),
     this.backgroundColor = const Color.fromRGBO(200, 200, 200, 0.5),
   });
@@ -95,8 +95,8 @@ class AudioProgressColors {
   final Color backgroundColor;
 }
 
-class _AudioScrubber extends StatefulWidget {
-  _AudioScrubber({
+class AudioScrubber extends StatefulWidget {
+  AudioScrubber({
     @required this.child,
     @required this.controller,
   });
@@ -108,7 +108,7 @@ class _AudioScrubber extends StatefulWidget {
   _AudioScrubberState createState() => _AudioScrubberState();
 }
 
-class _AudioScrubberState extends State<_AudioScrubber> {
+class _AudioScrubberState extends State<AudioScrubber> {
   bool _controllerWasPlaying = false;
 
   AudioPlayerController get controller => widget.controller;
@@ -243,7 +243,7 @@ class _AudioProgressIndicatorState extends State<AudioProgressIndicator> {
       child: progressIndicator,
     );
     if (widget.allowScrubbing) {
-      return _AudioScrubber(
+      return AudioScrubber(
         child: paddedProgressIndicator,
         controller: controller,
       );

@@ -6,12 +6,16 @@ import 'utils.dart';
 
 /// Created by cnting on 2019-12-05
 ///
-class DefaultPlayController extends StatefulWidget {
+class DefaultPlayControllerWidget extends StatefulWidget {
+  final bool allowScrubbing;
+
+  const DefaultPlayControllerWidget({this.allowScrubbing});
+
   @override
-  _DefaultPlayControllerState createState() => _DefaultPlayControllerState();
+  _DefaultPlayControllerWidgetState createState() => _DefaultPlayControllerWidgetState();
 }
 
-class _DefaultPlayControllerState extends State<DefaultPlayController> {
+class _DefaultPlayControllerWidgetState extends State<DefaultPlayControllerWidget> {
   final double _barHeight = 50;
   AudioPlayerValue _latestValue;
   AudioPlayerController _controller;
@@ -113,6 +117,7 @@ class _DefaultPlayControllerState extends State<DefaultPlayController> {
         padding: EdgeInsets.zero,
         colors:
             AudioProgressColors(playedColor: Theme.of(context).primaryColor),
+        allowScrubbing: widget.allowScrubbing ?? true,
       ),
     );
   }
