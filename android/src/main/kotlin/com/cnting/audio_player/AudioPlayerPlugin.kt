@@ -5,7 +5,9 @@ import android.net.Uri
 import android.util.Log
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
+import com.google.android.exoplayer2.source.BaseMediaSource
 import com.google.android.exoplayer2.source.ClippingMediaSource
+import com.google.android.exoplayer2.source.LoopingMediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
@@ -56,8 +58,9 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                 val player: AudioPlayer
                 var clipRange: List<Long>? = null
                 if (call.argument<Any?>("clipRange") != null) {
-                    clipRange = call.argument<List<Long>>("clipRange");
+                    clipRange = call.argument<List<Long>>("clipRange")
                 }
+                val loopingTimes = call.argument<Int>("loopingTimes") ?: 0
                 if (call.argument<Any?>("asset") != null) {
                     val assetLookupKey = if (call.argument<Any?>("package") != null) {
                         registrar.lookupKeyForAsset(call.argument("asset"), call.argument("package"))
@@ -68,12 +71,12 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                             registrar.context(),
                             id,
                             eventChannel,
-                            "asset:///$assetLookupKey", result, clipRange
+                            "asset:///$assetLookupKey", result, clipRange, loopingTimes
                     )
                     audioPlayers[id] = player
                 } else {
                     player = AudioPlayer(
-                            registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result, clipRange)
+                            registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result, clipRange, loopingTimes)
                     audioPlayers[id] = player
                 }
             }
@@ -134,7 +137,9 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 
 }
 
-class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel, dataSource: String, private val result: Result, private val clipRange: List<Long>?) {
+class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel,
+                  dataSource: String, private val result: Result, private val clipRange: List<Long>?,
+                  private val loopingTimes: Int = 0) {
 
     private lateinit var exoPlayer: SimpleExoPlayer
     private lateinit var dataSourceFactory: DataSource.Factory
@@ -163,13 +168,21 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
         }
         val mediaSourceFactory =
                 ProgressiveMediaSource.Factory(dataSourceFactory)
-        val mediaSource = mediaSourceFactory.createMediaSource(dataSourceUri)
-        if (clipRange != null) {
-            val clippingSource = ClippingMediaSource(mediaSource, clipRange[0] * 1000, clipRange[1] * 1000)  //传入微秒
-            exoPlayer.prepare(clippingSource)
-        } else {
-            exoPlayer.prepare(mediaSource)
+        var mediaSource: BaseMediaSource = mediaSourceFactory.createMediaSource(dataSourceUri)
+
+        //set looping times
+        if (loopingTimes > 0) {
+            mediaSource = LoopingMediaSource(mediaSource)
+        } else if (loopingTimes < 0) {
+            exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
         }
+
+        //set clip range
+        if (clipRange != null) {
+            mediaSource = ClippingMediaSource(mediaSource, clipRange[0] * 1000, clipRange[1] * 1000)  //传入微秒
+        }
+
+        exoPlayer.prepare(mediaSource)
 
         eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(p0: Any?, sink: EventChannel.EventSink?) {

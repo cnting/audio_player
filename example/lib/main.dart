@@ -19,8 +19,8 @@ class MyApp extends StatelessWidget {
         body: Column(
           children: <Widget>[
             _Item('simple', _Simple()),
-            _Item('播放[0:00-1:00]片段', _Clip()),
-            _Item('自定义视觉', _CustomController()),
+            _Item('play clip range', _Clip()),
+            _Item('custom ui', _CustomController()),
           ],
         ),
       ),
@@ -100,7 +100,7 @@ class _ClipState extends State<_Clip> {
     audioPlayerController = AudioPlayerController.network(url,
         playConfig: PlayConfig(
             clipRange: DurationRange.fromList([0, 1 * 60 * 1000]),
-            autoPlay: false));
+            autoPlay: false,loopingTimes: 2));
   }
 
   @override
