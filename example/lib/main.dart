@@ -5,8 +5,7 @@ import 'custom_controller.dart';
 
 void main() => runApp(MyApp());
 
-String url =
-    'https://webfs.yun.kugou.com/201912060956/7b29de9dd3f89d4139a2957eab384c9b/G132/M08/11/01/ZJQEAFsYxiWAbsJdAEexGAxvqAc720.mp3';
+String url = 'http://music.163.com/song/media/outer/url?id=29561063.mp3';
 
 class MyApp extends StatelessWidget {
   @override
@@ -99,8 +98,10 @@ class _ClipState extends State<_Clip> {
     super.initState();
     audioPlayerController = AudioPlayerController.network(url,
         playConfig: PlayConfig(
-            clipRange: DurationRange.fromList([0, 1 * 60 * 1000]),
-            autoPlay: false,loopingTimes: 2));
+            clipRange: DurationRange.fromList([0, 10 * 1000]),
+            autoPlay: false,
+            loopingTimes: 2
+        ));
   }
 
   @override

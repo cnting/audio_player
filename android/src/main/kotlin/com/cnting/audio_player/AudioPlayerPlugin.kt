@@ -170,16 +170,16 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
                 ProgressiveMediaSource.Factory(dataSourceFactory)
         var mediaSource: BaseMediaSource = mediaSourceFactory.createMediaSource(dataSourceUri)
 
-        //set looping times
-        if (loopingTimes > 0) {
-            mediaSource = LoopingMediaSource(mediaSource)
-        } else if (loopingTimes < 0) {
-            exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
-        }
-
         //set clip range
         if (clipRange != null) {
             mediaSource = ClippingMediaSource(mediaSource, clipRange[0] * 1000, clipRange[1] * 1000)  //传入微秒
+        }
+
+        //set looping times
+        if (loopingTimes > 0) {
+            mediaSource = LoopingMediaSource(mediaSource, loopingTimes)
+        } else if (loopingTimes < 0) {
+            exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
         }
 
         exoPlayer.prepare(mediaSource)
