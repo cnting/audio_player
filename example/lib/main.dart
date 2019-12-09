@@ -133,7 +133,7 @@ class _CustomControllerState extends State<_CustomController> {
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController.network(url,
+    audioPlayerController = AudioPlayerController.asset('assets/Utakata.mp3',
         playConfig: PlayConfig(autoPlay: false));
   }
 
