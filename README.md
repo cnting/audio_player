@@ -8,7 +8,7 @@ First, add `audio_player` as a [dependency in your pubspec.yaml file](https://fl
 
 ```yaml
 audio_player:
-	git: git@github.com:cnting/audio_player.git
+  git: git@github.com:cnting/audio_player.git
 ```
 
 #### Android
