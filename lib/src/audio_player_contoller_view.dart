@@ -6,17 +6,19 @@ import 'utils.dart';
 
 /// Created by cnting on 2019-12-05
 ///
-class DefaultPlayControllerWidget extends StatefulWidget {
-  final bool allowScrubbing;
 
-  const DefaultPlayControllerWidget({this.allowScrubbing});
+class PlayControllerWidget extends StatefulWidget {
+  final Builder errorBuilder;
+  final Widget Function(BuildContext context, AudioPlayerController controller,
+      AudioPlayerValue latestValue) builder;
+
+  const PlayControllerWidget({this.builder, this.errorBuilder});
 
   @override
-  _DefaultPlayControllerWidgetState createState() => _DefaultPlayControllerWidgetState();
+  _PlayControllerWidgetState createState() => _PlayControllerWidgetState();
 }
 
-class _DefaultPlayControllerWidgetState extends State<DefaultPlayControllerWidget> {
-  final double _barHeight = 50;
+class _PlayControllerWidgetState extends State<PlayControllerWidget> {
   AudioPlayerValue _latestValue;
   AudioPlayerController _controller;
 
@@ -34,92 +36,15 @@ class _DefaultPlayControllerWidgetState extends State<DefaultPlayControllerWidge
   @override
   Widget build(BuildContext context) {
     if (_latestValue.hasError) {
-      return Container();
+      return widget.errorBuilder ?? Container();
     }
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          _buildPlayPause(),
-          _buildPosition(),
-          _buildProgressBar()
-        ],
-      ),
-    );
+    return widget.builder(context, _controller, _latestValue);
   }
 
   @override
   void dispose() {
     _dispose();
     super.dispose();
-  }
-
-  ///播放暂停按钮
-  Widget _buildPlayPause() {
-    return GestureDetector(
-      onTap: _playPause,
-      child: Container(
-        height: _barHeight,
-        color: Colors.transparent,
-        margin: EdgeInsets.only(right: 4.0),
-        child: Icon(
-          _controller.value.isPlaying
-              ? Icons.pause_circle_filled
-              : Icons.play_circle_filled,
-          size: 40,
-        ),
-      ),
-    );
-  }
-
-  void _playPause() {
-    setState(() {
-      if (_latestValue.isPlaying) {
-        _controller.pause();
-      } else {
-        if (!_latestValue.initialized) {
-          _controller.initialize().then((_) {
-            _controller.play();
-          });
-        } else {
-          _controller.play();
-        }
-      }
-    });
-  }
-
-  ///时长
-  Widget _buildPosition() {
-    final position = _latestValue != null && _latestValue.position != null
-        ? _latestValue.position
-        : Duration.zero;
-    final duration = _latestValue != null && _latestValue.duration != null
-        ? _latestValue.duration
-        : Duration.zero;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 10.0),
-      child: Text(
-        '${formatDuration(position)} / ${formatDuration(duration)}',
-        style: TextStyle(
-          fontSize: 14.0,
-        ),
-      ),
-    );
-  }
-
-  ///进度条
-  Widget _buildProgressBar() {
-    return Expanded(
-      child: AudioProgressIndicator(
-        _controller,
-        padding: EdgeInsets.zero,
-        colors:
-            AudioProgressColors(playedColor: Theme.of(context).primaryColor),
-        allowScrubbing: widget.allowScrubbing ?? true,
-      ),
-    );
   }
 
   void _dispose() {
@@ -135,5 +60,116 @@ class _DefaultPlayControllerWidgetState extends State<DefaultPlayControllerWidge
     setState(() {
       _latestValue = _controller.value;
     });
+  }
+}
+
+class DefaultPlayControllerWidget extends StatefulWidget {
+  final bool allowScrubbing;
+
+  const DefaultPlayControllerWidget({this.allowScrubbing});
+
+  @override
+  _DefaultPlayControllerWidgetState createState() =>
+      _DefaultPlayControllerWidgetState();
+}
+
+class _DefaultPlayControllerWidgetState
+    extends State<DefaultPlayControllerWidget> {
+  final double _barHeight = 50;
+
+  @override
+  Widget build(BuildContext context) {
+    return PlayControllerWidget(
+      builder: (context, AudioPlayerController controller,
+          AudioPlayerValue latestValue) {
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              _buildPlayPause(controller, latestValue),
+              _buildPosition(controller, latestValue),
+              _buildProgressBar(controller, latestValue)
+            ],
+          ),
+        );
+      },
+      errorBuilder: Builder(
+        builder: (context) {
+          return Container();
+        },
+      ),
+    );
+  }
+
+  ///播放暂停按钮
+  Widget _buildPlayPause(
+      AudioPlayerController controller, AudioPlayerValue latestValue) {
+    return GestureDetector(
+      onTap: () => _playPause(controller, latestValue),
+      child: Container(
+        height: _barHeight,
+        color: Colors.transparent,
+        margin: EdgeInsets.only(right: 4.0),
+        child: Icon(
+          controller.value.isPlaying
+              ? Icons.pause_circle_filled
+              : Icons.play_circle_filled,
+          size: 40,
+        ),
+      ),
+    );
+  }
+
+  void _playPause(
+      AudioPlayerController controller, AudioPlayerValue latestValue) {
+    setState(() {
+      if (latestValue.isPlaying) {
+        controller.pause();
+      } else {
+        if (!latestValue.initialized) {
+          controller.initialize().then((_) {
+            controller.play();
+          });
+        } else {
+          controller.play();
+        }
+      }
+    });
+  }
+
+  ///时长
+  Widget _buildPosition(
+      AudioPlayerController controller, AudioPlayerValue latestValue) {
+    final position = latestValue != null && latestValue.position != null
+        ? latestValue.position
+        : Duration.zero;
+    final duration = latestValue != null && latestValue.duration != null
+        ? latestValue.duration
+        : Duration.zero;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 10.0),
+      child: Text(
+        '${formatDuration(position)} / ${formatDuration(duration)}',
+        style: TextStyle(
+          fontSize: 14.0,
+        ),
+      ),
+    );
+  }
+
+  ///进度条
+  Widget _buildProgressBar(
+      AudioPlayerController controller, AudioPlayerValue latestValue) {
+    return Expanded(
+      child: AudioProgressIndicator(
+        controller,
+        padding: EdgeInsets.zero,
+        colors:
+            AudioProgressColors(playedColor: Theme.of(context).primaryColor),
+        allowScrubbing: widget.allowScrubbing ?? true,
+      ),
+    );
   }
 }

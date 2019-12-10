@@ -1,9 +1,5 @@
 import 'dart:math';
-
-/// Created by cnting on 2019-12-06
-
 import 'package:flutter/material.dart';
-
 import 'package:audio_player/audio.dart';
 
 /// Created by cnting on 2019-12-05
@@ -14,45 +10,36 @@ class CustomPlayController extends StatefulWidget {
 }
 
 class _CustomPlayControllerState extends State<CustomPlayController> {
-  AudioPlayerValue _latestValue;
-  AudioPlayerController _controller;
-
-  @override
-  void didChangeDependencies() {
-    final oldController = _controller;
-    _controller = AudioPlayerControllerProvider.of(context);
-    if (oldController != _controller) {
-      _dispose();
-      _initialize();
-    }
-    super.didChangeDependencies();
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_latestValue.hasError) {
-      return Container();
-    }
-    return Stack(
-      alignment: Alignment.center,
-      children: <Widget>[_buildProgressBar(), _buildPlayPause()],
+    return PlayControllerWidget(
+      builder: (context, AudioPlayerController controller,
+          AudioPlayerValue latestValue) {
+        return Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            _buildProgressBar(controller, latestValue),
+            _buildPlayPause(controller, latestValue)
+          ],
+        );
+      },
+      errorBuilder: Builder(
+        builder: (context) {
+          return Container();
+        },
+      ),
     );
   }
 
-  @override
-  void dispose() {
-    _dispose();
-    super.dispose();
-  }
-
   ///播放暂停按钮
-  Widget _buildPlayPause() {
+  Widget _buildPlayPause(
+      AudioPlayerController controller, AudioPlayerValue latestValue) {
     return GestureDetector(
-      onTap: _playPause,
+      onTap: () => _playPause(controller, latestValue),
       child: Container(
         height: 50,
         child: Icon(
-          _controller.value.isPlaying
+          controller.value.isPlaying
               ? Icons.pause_circle_filled
               : Icons.play_circle_filled,
           size: 50,
@@ -61,64 +48,31 @@ class _CustomPlayControllerState extends State<CustomPlayController> {
     );
   }
 
-  void _playPause() {
+  void _playPause(
+      AudioPlayerController controller, AudioPlayerValue latestValue) {
     setState(() {
-      if (_latestValue.isPlaying) {
-        _controller.pause();
+      if (latestValue.isPlaying) {
+        controller.pause();
       } else {
-        if (!_latestValue.initialized) {
-          _controller.initialize().then((_) {
-            _controller.play();
+        if (!latestValue.initialized) {
+          controller.initialize().then((_) {
+            controller.play();
           });
         } else {
-          _controller.play();
+          controller.play();
         }
       }
     });
   }
 
-  ///时长
-  Widget _buildPosition() {
-    final position = _latestValue != null && _latestValue.position != null
-        ? _latestValue.position
-        : Duration.zero;
-    final duration = _latestValue != null && _latestValue.duration != null
-        ? _latestValue.duration
-        : Duration.zero;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 10.0),
-      child: Text(
-        '${formatDuration(position)} / ${formatDuration(duration)}',
-        style: TextStyle(
-          fontSize: 14.0,
-        ),
-      ),
-    );
-  }
-
   ///进度条
-  Widget _buildProgressBar() {
+  Widget _buildProgressBar(
+      AudioPlayerController controller, AudioPlayerValue latestValue) {
     return Container(
       width: 70,
       height: 70,
-      child: _ProgressIndicator(_controller),
+      child: _ProgressIndicator(controller),
     );
-  }
-
-  void _dispose() {
-    _controller.removeListener(_updateState);
-  }
-
-  void _initialize() {
-    _controller.addListener(_updateState);
-    _updateState();
-  }
-
-  void _updateState() {
-    setState(() {
-      _latestValue = _controller.value;
-    });
   }
 }
 
