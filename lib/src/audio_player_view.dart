@@ -53,11 +53,13 @@ class _AudioPlayerState extends State<AudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return _playerId == null
-        ? Container(
+    return
+//      _playerId == null
+//        ? Container(
 //            child: Text('playId为空'),
-            )
-        : AudioPlayerControllerProvider(
+//            )
+//        :
+      AudioPlayerControllerProvider(
             controller: widget.controller,
             child: widget.playController ?? DefaultPlayControllerWidget(),
           );
