@@ -172,7 +172,7 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
 
         //set clip range
         if (clipRange != null) {
-            mediaSource = ClippingMediaSource(mediaSource, clipRange[0] * 1000, clipRange[1] * 1000)  //传入微秒
+            mediaSource = ClippingMediaSource(mediaSource, clipRange[0] * 1000, if (clipRange[1] < 0) C.TIME_END_OF_SOURCE else clipRange[1] * 1000)  //传入微秒
         }
 
         //set looping times

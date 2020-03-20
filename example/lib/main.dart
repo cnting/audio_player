@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:audio_player/audio.dart';
+import 'package:flutter/material.dart';
 
 import 'custom_controller.dart';
 
@@ -18,7 +18,8 @@ class MyApp extends StatelessWidget {
         body: Column(
           children: <Widget>[
             _Item('simple', _Simple()),
-            _Item('play clip range', _Clip()),
+            _Item('play clip range has end time', _Clip(true)),
+            _Item('play clip range no end time', _Clip(false)),
             _Item('custom ui', _CustomController()),
           ],
         ),
@@ -86,6 +87,11 @@ class _SimpleState extends State<_Simple> {
 
 ///播放片段
 class _Clip extends StatefulWidget {
+
+  final bool hasEndTime;
+
+  const _Clip(this.hasEndTime);
+
   @override
   _ClipState createState() => _ClipState();
 }
@@ -98,7 +104,12 @@ class _ClipState extends State<_Clip> {
     super.initState();
     audioPlayerController = AudioPlayerController.network(url,
         playConfig: PlayConfig(
-            clipRange: DurationRange.fromList([0, 10 * 1000]),
+            clipRange: DurationRange.fromList(
+                [
+                  5 * 1000,
+                  if(widget.hasEndTime)
+                    10 * 1000
+                ]),
             autoPlay: false,
             loopingTimes: 2
         ));

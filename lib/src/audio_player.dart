@@ -12,11 +12,18 @@ class DurationRange {
 
   factory DurationRange.fromValue(dynamic value) {
     List<dynamic> pair = value;
-    return DurationRange(
-        Duration(milliseconds: pair[0]), Duration(milliseconds: pair[1]));
+    return DurationRange.fromList(pair);
   }
 
   factory DurationRange.fromList(List<int> value) {
+    assert(value.length >= 1 &&
+        value[0] >= 0, 'invalid DurationRange:$value');
+
+    //如果只传入开始时间，则播放到音频末尾
+    if (value.length == 1) {
+      value.add(-1);
+    }
+
     return DurationRange(
         Duration(milliseconds: value[0]), Duration(milliseconds: value[1]));
   }
@@ -154,7 +161,8 @@ class PlayConfig {
       this.clipRange,
       this.loopingTimes = 0})
       : assert(startAt == null || clipRange == null,
-            'Cannot provide both startAt and clipRange');
+  'Cannot provide both startAt and clipRange')
+  ;
 }
 
 enum DataSourceType { asset, network, file }
