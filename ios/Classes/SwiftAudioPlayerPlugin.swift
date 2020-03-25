@@ -3,7 +3,7 @@ import UIKit
 
 class SwiftAudioPlayer: NSObject {
     
-    private var player: ListenAudioPlayer?
+    var player: ListenAudioPlayer?
     private var isPlaying: Bool! = false
     private var isInitialized: Bool! = false
     private var playerCurrentTime: Int! = 0
@@ -35,9 +35,14 @@ class SwiftAudioPlayer: NSObject {
                 playerCurrentTime = 0
             } else {
                 playerCurrentTime = firstValue/1000
+                seekTo(with: playerCurrentTime)
             }
-            playerDuration = lastValue/1000
-            seekTo(with: playerCurrentTime)
+            if (lastValue != -1) {//-1表示播放到音频末尾
+                playerDuration = lastValue/1000
+            } else {
+                playerDuration = Int(player!.duration);
+            }
+            
             playerLoops = numberOfLoops
         } else {
             playerLoops = numberOfLoops
@@ -49,7 +54,22 @@ class SwiftAudioPlayer: NSObject {
     }
     
     @objc private func fire(with playLink: CADisplayLink) {
-        if currentTime() + playerCurrentTime - 1 >= playerDuration {
+        
+        if playerDuration == Int(player!.duration) {
+            if player?.currentTime ?? 0 >= player?.duration ?? 0 {
+                loopCount += 1
+                seekTo(with: playerCurrentTime)
+                if playerLoops == -1 {
+                    play()
+                } else if playerLoops <= loopCount {
+                    pause()
+                } else if playerLoops > loopCount {
+                    play()
+                }
+            }
+            return
+        }
+        if player!.currentTime >= Double(playerDuration) {
             loopCount += 1
             seekTo(with: playerCurrentTime)
             if playerLoops == -1 {
@@ -89,7 +109,7 @@ class SwiftAudioPlayer: NSObject {
     }
     
     public func seekTo(with location: Int) {
-        player?.currentTime = TimeInterval(location/1000)
+        player?.currentTime = TimeInterval(location)
     }
     
     public func currentTime() -> Int {
@@ -119,7 +139,7 @@ class SwiftAudioPlayer: NSObject {
         guard eventSink != nil else {
             return
         }
-        eventSink!(["event":"bufferingUpdate","values":[0,Int(player!.duration) * 1000]])
+        eventSink!(["event":"bufferingUpdate","values":[playerCurrentTime * 1000,playerDuration * 1000 - playerCurrentTime * 1000]])
     }
     
     private func sendPlayStateChanged(with isPlaying: Bool) {
@@ -136,7 +156,8 @@ class SwiftAudioPlayer: NSObject {
                 return
             }
             isInitialized = true
-            eventSink!(["event":"initialized","duration":(playerClipRange.count == 0 ? duration * 1000 : playerClipRange[1])])
+            let normDuration = (playerClipRange.count == 0 ? (duration * 1000) : (playerDuration - playerCurrentTime)*1000)
+            eventSink!(["event":"initialized","duration":normDuration])
         }
     }
     
@@ -221,10 +242,11 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
             result(nil)
         } else if call.method == AudioPlayerMethodCallName.seekTo {
             let location: Int = Int(truncating: (argsMap!["location"] as! NSNumber))
-            player.seekTo(with: location)
+            player.seekTo(with: location == 0 ? player.playerCurrentTime : location/1000)
             result(nil)
         } else if call.method == AudioPlayerMethodCallName.position {
-            result(player.currentTime() * 1000)
+
+            result(Int(player.player!.currentTime * Double(1000)))
             player.sendBufferingUpdate()
         } else if call.method == AudioPlayerMethodCallName.dispose {
             player.dispose()
