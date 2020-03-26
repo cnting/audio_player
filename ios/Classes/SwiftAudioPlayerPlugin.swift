@@ -6,7 +6,7 @@ class SwiftAudioPlayer: NSObject {
     var player: ListenAudioPlayer?
     private var isPlaying: Bool! = false
     private var isInitialized: Bool! = false
-    private var playerCurrentTime: Int! = 0
+    var playerCurrentTime: Int! = 0
     private var playerDuration: Int! = 0
     private var playerClipRange: [Int]! = []
     private var playerLoops: Int! = 0
