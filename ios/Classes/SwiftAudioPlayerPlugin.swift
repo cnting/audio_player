@@ -7,7 +7,7 @@ class SwiftAudioPlayer: NSObject {
     private var isPlaying: Bool! = false
     private var isInitialized: Bool! = false
     var playerCurrentTime: Int! = 0
-    private var playerDuration: Int! = 0
+    var playerDuration: Int! = 0
     private var playerClipRange: [Int]! = []
     private var playerLoops: Int! = 0
     private var loopCount: Int! = 0
@@ -245,8 +245,12 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
             player.seekTo(with: location == 0 ? player.playerCurrentTime : location/1000)
             result(nil)
         } else if call.method == AudioPlayerMethodCallName.position {
-
-            result(Int(player.player!.currentTime * Double(1000)))
+            if player.playerDuration == Int(player.player!.duration) {
+                result(Int((floor(player.player!.currentTime) - Double(player.playerCurrentTime!)) * Double(1000)))
+            } else {
+                result(Int((round(player.player!.currentTime) - Double(player.playerCurrentTime!)) * Double(1000)))
+            }
+            
             player.sendBufferingUpdate()
         } else if call.method == AudioPlayerMethodCallName.dispose {
             player.dispose()
