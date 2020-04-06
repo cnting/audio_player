@@ -320,7 +320,5 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
             }
         }
     }
-    
   }
-    
 }
