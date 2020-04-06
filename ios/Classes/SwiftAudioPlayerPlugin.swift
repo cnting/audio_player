@@ -11,20 +11,33 @@ class SwiftAudioPlayer: NSObject {
     private var playerClipRange: [Int]! = []
     private var playerLoops: Int! = 0
     private var loopCount: Int! = 0
-    private var displayLink: CADisplayLink!
     fileprivate var eventChannel: FlutterEventChannel?
     fileprivate var eventSink: FlutterEventSink?
     
     public convenience init(on asset: String, _ clipRange: [Int], _ numberOfLoops: Int) throws {
         let path = Bundle.main.path(forResource: asset, ofType: nil) ?? ""
-        try self.init(with:URL.init(fileURLWithPath: path),clipRange,numberOfLoops)
+        try self.init(with:path,clipRange,numberOfLoops)
     }
     
-    public init(with url: URL, _ clipRange: [Int], _ numberOfLoops: Int) throws {
+    public init(with url: String, _ clipRange: [Int], _ numberOfLoops: Int) throws {
         isInitialized = false
         isPlaying = false
-        player = try ListenAudioPlayer.init(contentsOf: url)
+        if url.hasPrefix("http") || url.hasPrefix("https") {
+            player = try ListenAudioPlayer.init(contentsOf: URL.init(string: url)!)
+        } else {
+            
+            if url.contains("file://") {
+                let filePath = url as NSString;
+                let path = filePath.substring(from: url.count - (url.count - 7))
+                player = try ListenAudioPlayer.init(contentsOfPath: path)
+
+            } else {
+                player = try ListenAudioPlayer.init(contentsOfPath: url)
+
+            }
+        }
         super.init()
+        player?.delegate = self
         
         if clipRange.count != 0 {
             playerClipRange = clipRange
@@ -49,43 +62,8 @@ class SwiftAudioPlayer: NSObject {
             playerCurrentTime = 0
             playerDuration = Int(player!.duration)
         }
-        createDisplayLink()
-        sendInitialized()
-    }
-    
-    @objc private func fire(with playLink: CADisplayLink) {
         
-        if playerDuration == Int(player!.duration) {
-            if player?.currentTime ?? 0 >= player?.duration ?? 0 {
-                loopCount += 1
-                seekTo(with: playerCurrentTime)
-                if playerLoops == -1 {
-                    play()
-                } else if playerLoops <= loopCount {
-                    pause()
-                } else if playerLoops > loopCount {
-                    play()
-                }
-            }
-            return
-        }
-        if player!.currentTime >= Double(playerDuration) {
-            loopCount += 1
-            seekTo(with: playerCurrentTime)
-            if playerLoops == -1 {
-                play()
-            } else if playerLoops <= loopCount {
-                pause()
-            } else if playerLoops > loopCount {
-                play()
-            }
-        }
-    }
-    
-    private func createDisplayLink() {
-        displayLink = CADisplayLink.init(target: self, selector: #selector(fire(with:)))
-        displayLink.add(to: RunLoop.current, forMode: RunLoop.Mode.common)
-        displayLink.isPaused = true
+        sendInitialized()
     }
     
     public func play() {
@@ -132,7 +110,6 @@ class SwiftAudioPlayer: NSObject {
             sendPlayStateChanged(with: false)
             player?.pause()
         }
-        displayLink.isPaused = !isPlaying
     }
     
     public func sendBufferingUpdate() {
@@ -165,10 +142,25 @@ class SwiftAudioPlayer: NSObject {
         if isInitialized {
             player?.stop()
         }
-        displayLink.invalidate()
         eventChannel?.setStreamHandler(nil)
     }
     
+}
+
+extension SwiftAudioPlayer:ListenAudioPlayerDelegate {
+    func playDidFinishByPlaying() {
+        loopCount += 1
+//        seekTo(with: self.playerCurrentTime)
+        if playerLoops == -1 {
+            seekTo(with: self.playerCurrentTime)
+            play()
+        } else if playerLoops <= loopCount {
+            pause()
+        } else if playerLoops > loopCount {
+            seekTo(with: self.playerCurrentTime)
+            play()
+        }
+    }
 }
 
 extension SwiftAudioPlayer: FlutterStreamHandler {
@@ -305,7 +297,7 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
                 } catch {}
             } else if urlStr != nil {
                 do {
-                    player = try SwiftAudioPlayer.init(with: URL.init(string: urlStr!)!,clipRange,numberOfLoops)
+                    player = try SwiftAudioPlayer.init(with: urlStr!,clipRange,numberOfLoops)
                     onPlayer(setUp: player, on: result)
                 } catch {}
                 
