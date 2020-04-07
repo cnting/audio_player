@@ -88,10 +88,7 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                     audioPlayers[id] = player
                 }
                 val autoCache = call.argument<Boolean>("autoCache")?:false
-                if(autoCache){
-                    player.doDownload("")
-                }
-                player.initDownloadState()
+                player.initDownloadState(autoCache)
             }
             else -> {
                 val playerId = call.argument<Long>("playerId") ?: 0
@@ -328,7 +325,8 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
             exoPlayer.stop()
         }
         eventChannel.setStreamHandler(null)
-        exoPlayer?.release()
+        exoPlayer.release()
+        refreshProgressTimer?.cancel()
     }
 
     fun setSpeed(speed: Double) {
@@ -363,8 +361,11 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
         }
     }
 
-    fun initDownloadState() {
+    fun initDownloadState(autoCache: Boolean) {
         val download = sendDownloadState()
+        if (autoCache && download?.state != Download.STATE_DOWNLOADING && download?.state != Download.STATE_COMPLETED) {
+            doDownload("")
+        }
         if (download != null) { //如果在STATE_DOWNLOADING状态，直到下载完成onDownloadsChanged才会回调，所以不能用startRefreshProgressTask()方法
             startRefreshProgressTimer(null)
         }
