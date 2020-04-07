@@ -11,6 +11,7 @@ class SwiftAudioPlayer: NSObject {
     private var playerClipRange: [Int]! = []
     private var playerLoops: Int! = 0
     private var loopCount: Int! = 0
+    private var displayLink: CADisplayLink!
     fileprivate var eventChannel: FlutterEventChannel?
     fileprivate var eventSink: FlutterEventSink?
     
@@ -37,7 +38,6 @@ class SwiftAudioPlayer: NSObject {
             }
         }
         super.init()
-        player?.delegate = self
         
         if clipRange.count != 0 {
             playerClipRange = clipRange
@@ -52,7 +52,9 @@ class SwiftAudioPlayer: NSObject {
             }
             if (lastValue != -1) {//-1表示播放到音频末尾
                 playerDuration = lastValue/1000
+                createDisplayLink()
             } else {
+                player?.delegate = self
                 playerDuration = Int(player!.duration);
             }
             
@@ -61,8 +63,31 @@ class SwiftAudioPlayer: NSObject {
             playerLoops = numberOfLoops
             playerCurrentTime = 0
             playerDuration = Int(player!.duration)
+            player?.delegate = self
         }
         
+        sendInitialized()
+    }
+    
+    @objc private func fire(with playLink: CADisplayLink) {
+        
+        if player!.currentTime >= Double(playerDuration) {
+            loopCount += 1
+            seekTo(with: playerCurrentTime)
+            if playerLoops == -1 {
+                play()
+            } else if playerLoops <= loopCount {
+                pause()
+            } else if playerLoops > loopCount {
+                play()
+            }
+        }
+    }
+    
+    private func createDisplayLink() {
+        displayLink = CADisplayLink.init(target: self, selector: #selector(fire(with:)))
+        displayLink.add(to: RunLoop.current, forMode: RunLoop.Mode.common)
+        displayLink.isPaused = true
         sendInitialized()
     }
     
@@ -110,6 +135,7 @@ class SwiftAudioPlayer: NSObject {
             sendPlayStateChanged(with: false)
             player?.pause()
         }
+        displayLink?.isPaused = !isPlaying
     }
     
     public func sendBufferingUpdate() {
@@ -142,6 +168,7 @@ class SwiftAudioPlayer: NSObject {
         if isInitialized {
             player?.stop()
         }
+        displayLink?.invalidate()
         eventChannel?.setStreamHandler(nil)
     }
     
