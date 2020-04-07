@@ -7,6 +7,23 @@ import 'package:flutter/services.dart';
 final MethodChannel _channel = const MethodChannel('cnting.com/audio_player')
   ..invokeMethod<void>('init');
 
+class DownloadState {
+  static const int UNDOWNLOAD = 0;
+  static const int DOWNLOADING = 1;
+  static const int COMPLETED = 2;
+  static const int ERROR = 3;
+
+  DownloadState(this.state, {this.progress});
+
+  final int state;
+  final double progress;
+}
+
+class DownloadNotifier extends ValueNotifier<DownloadState> {
+  DownloadNotifier(DownloadState value) : super(value);
+}
+
+
 class DurationRange {
   DurationRange(this.start, this.end);
 
@@ -141,7 +158,7 @@ class AudioPlayerValue {
         'buffered: [${buffered.join(', ')}], '
         'isPlaying: $isPlaying, '
         'isLooping: $isLooping, '
-        'isBuffering: $isBuffering'
+        'isBuffering: $isBuffering,'
         'volume: $volume, '
         'errorDescription: $errorDescription)';
   }
@@ -178,6 +195,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   Completer<void> _creatingCompleter;
   StreamSubscription<dynamic> _eventSubscription;
   _AudioAppLifeCycleObserver _lifeCycleObserver;
+  ValueNotifier<DownloadState> downloadNotifier = ValueNotifier(DownloadState(DownloadState.UNDOWNLOAD));
 
   int get playerId => _playerId;
 
@@ -297,6 +315,11 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
               errorDescription: null,
               forceSetErrorDescription: true);
           break;
+        case 'downloadState':
+          final int state = map['state'];
+          double progress = map['progress'];
+          downloadNotifier.value = DownloadState(state, progress: progress);
+          break;
       }
     }
 
@@ -337,6 +360,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       _lifeCycleObserver.dispose();
     }
     _isDisposed = true;
+    downloadNotifier?.dispose();
     super.dispose();
   }
 
@@ -457,6 +481,27 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     await _channel.invokeMethod<void>(
       'setSpeed',
       <String, dynamic>{'playerId': _playerId, 'speed': speed},
+    );
+  }
+
+  ///下载
+  Future<void> download(String name) async {
+    await _channel.invokeMethod<void>(
+      'download',
+      <String, dynamic>{
+        'playerId': _playerId,
+        'name': name
+      },
+    );
+  }
+
+  ///删除下载
+  Future<void> removeDownload() async {
+    await _channel.invokeMethod<void>(
+      'removeDownload',
+      <String, dynamic>{
+        'playerId': _playerId,
+      },
     );
   }
 }

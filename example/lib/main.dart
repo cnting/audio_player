@@ -17,10 +17,10 @@ class MyApp extends StatelessWidget {
         ),
         body: Column(
           children: <Widget>[
-            _Item('simple', _Simple()),
-            _Item('play clip range has end time', _Clip(true)),
-            _Item('play clip range no end time', _Clip(false)),
-            _Item('custom ui', _CustomController()),
+            _Item('simple', [_Simple()]),
+            _Item('play clip range has end time', [_Clip(true)]),
+            _Item('play clip range no end time', [_Clip(false)]),
+            _Item('custom ui', [_CustomController()]),
           ],
         ),
       ),
@@ -30,9 +30,9 @@ class MyApp extends StatelessWidget {
 
 class _Item extends StatelessWidget {
   final String title;
-  final Widget child;
+  final List<Widget> children;
 
-  const _Item(this.title, this.child);
+  const _Item(this.title, this.children);
 
   @override
   Widget build(BuildContext context) {
@@ -46,11 +46,10 @@ class _Item extends StatelessWidget {
             style: TextStyle(color: Colors.grey),
           ),
         ),
-        child,
+        ...children,
         Divider(
           color: Colors.grey[600],
         ),
-        Container()
       ],
     );
   }
@@ -69,6 +68,9 @@ class _SimpleState extends State<_Simple> {
   void initState() {
     super.initState();
     audioPlayerController = AudioPlayerController.network(url);
+    audioPlayerController.addListener(() {
+      print('===>listener:${audioPlayerController.value}');
+    });
   }
 
   @override
@@ -79,9 +81,59 @@ class _SimpleState extends State<_Simple> {
 
   @override
   Widget build(BuildContext context) {
-    return AudioPlayer(
-      audioPlayerController,
-    );
+    return Column(children: <Widget>[
+      AudioPlayer(
+        audioPlayerController,
+      ),
+      _DownloadWidget(audioPlayerController)
+    ],);
+  }
+}
+
+class _DownloadWidget extends StatefulWidget {
+  final AudioPlayerController audioPlayerController;
+
+  const _DownloadWidget(this.audioPlayerController);
+
+  @override
+  __DownloadWidgetState createState() => __DownloadWidgetState();
+}
+
+class __DownloadWidgetState extends State<_DownloadWidget> {
+
+  int downloadState;
+  double downloadProgress;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.audioPlayerController.downloadNotifier.addListener(() {
+      setState(() {
+        downloadState = widget.audioPlayerController.downloadNotifier.value.state;
+        downloadProgress = widget.audioPlayerController.downloadNotifier.value.progress;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var text;
+    if (downloadState == null || downloadState == DownloadState.UNDOWNLOAD) {
+      text = Text('点击下载');
+    } else if (downloadState == DownloadState.COMPLETED) {
+      text = Text('下载完成，点击删除');
+    } else if (downloadState == DownloadState.ERROR) {
+      text = Text('下载失败，点击重下');
+    } else {
+      text = Text('下载进度:$downloadProgress');
+    }
+    return RaisedButton(child: text, onPressed: () {
+      if (downloadState == null || downloadState == DownloadState.UNDOWNLOAD || downloadState == DownloadState.ERROR) {
+        widget.audioPlayerController.download('正在下载音频...');
+      } else if (downloadState == DownloadState.COMPLETED) {
+        widget.audioPlayerController.removeDownload();
+      }
+    },);
   }
 }
 

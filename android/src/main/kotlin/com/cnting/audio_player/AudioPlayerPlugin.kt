@@ -2,19 +2,22 @@ package com.cnting.audio_player
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
+import com.cnting.audio_player.download.AudioDownloadManager
+import com.cnting.audio_player.download.AudioDownloadService
+import com.cnting.audio_player.download.AudioDownloadTracker
+import com.cnting.audio_player.download.GpDownloadState
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
-import com.google.android.exoplayer2.source.BaseMediaSource
+import com.google.android.exoplayer2.offline.Download
+import com.google.android.exoplayer2.offline.DownloadRequest
+import com.google.android.exoplayer2.offline.DownloadService
+import com.google.android.exoplayer2.offline.StreamKey
 import com.google.android.exoplayer2.source.ClippingMediaSource
 import com.google.android.exoplayer2.source.LoopingMediaSource
+import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.upstream.DataSource
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -26,6 +29,7 @@ import java.util.*
 class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 
     private var audioPlayers = mutableMapOf<Long, AudioPlayer>()
+    private val audioDownloadManager: AudioDownloadManager = AudioDownloadManager.getInstance(registrar.activeContext().applicationContext)
 
     companion object {
         @JvmStatic
@@ -70,15 +74,20 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                     player = AudioPlayer(
                             registrar.context(),
                             id,
-                            eventChannel,
-                            "asset:///$assetLookupKey", result, clipRange, loopingTimes
+                            eventChannel = eventChannel,
+                            dataSource = "asset:///$assetLookupKey",
+                            result = result,
+                            clipRange = clipRange,
+                            loopingTimes = loopingTimes,
+                            audioDownloadManager = audioDownloadManager
                     )
                     audioPlayers[id] = player
                 } else {
                     player = AudioPlayer(
-                            registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result, clipRange, loopingTimes)
+                            registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result, clipRange, loopingTimes, audioDownloadManager)
                     audioPlayers[id] = player
                 }
+                player.initDownloadState()
             }
             else -> {
                 val playerId = call.argument<Long>("playerId") ?: 0
@@ -131,6 +140,15 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                 player.setSpeed(speed)
                 result.success(null)
             }
+            "download" -> {
+                val name = call.argument<String>("name") ?: ""
+                player.doDownload(name)
+                result.success(null)
+            }
+            "removeDownload" -> {
+                player.removeDownload()
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }
@@ -139,14 +157,14 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 
 class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel,
                   dataSource: String, private val result: Result, private val clipRange: List<Long>?,
-                  private val loopingTimes: Int = 0) {
+                  private val loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager) {
 
     private lateinit var exoPlayer: SimpleExoPlayer
-    private lateinit var dataSourceFactory: DataSource.Factory
     private val eventSink = QueuingEventSink()
     private var dataSourceUri: Uri = Uri.parse(dataSource)
     private var context: Context = c.applicationContext
     private var isInitialized = false
+    private var refreshProgressTimer: Timer? = null
 
     init {
         setupAudioPlayer()
@@ -160,15 +178,7 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.CONTENT_TYPE_MUSIC)
                 .build(), true)
-        dataSourceFactory = if (isFileOrAsset(dataSourceUri)) {
-            DefaultDataSourceFactory(context, "ExoPlayer")
-        } else {
-            DefaultHttpDataSourceFactory("ExoPlayer", null, DefaultHttpDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS,
-                    DefaultHttpDataSource.DEFAULT_READ_TIMEOUT_MILLIS, true)
-        }
-        val mediaSourceFactory =
-                ProgressiveMediaSource.Factory(dataSourceFactory)
-        var mediaSource: BaseMediaSource = mediaSourceFactory.createMediaSource(dataSourceUri)
+        var mediaSource = buildMediaSource()
 
         //set clip range
         if (clipRange != null) {
@@ -198,6 +208,11 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
         val event: MutableMap<String, Any> = HashMap()
         event["playerId"] = playerId
         result.success(event)
+    }
+
+    private fun buildMediaSource(): MediaSource {
+        return ProgressiveMediaSource.Factory(audioDownloadManager.localDataSourceFactory)
+                .createMediaSource(dataSourceUri)
     }
 
     private fun addExoPlayerListener() {
@@ -318,5 +333,96 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
         }
         val playbackParameters = PlaybackParameters(speed.toFloat())
         exoPlayer.playbackParameters = playbackParameters
+    }
+
+    fun doDownload(downloadNotificationName: String) {
+        if (isFileOrAsset(dataSourceUri)) {
+            return
+        }
+        val downloadRequest = DownloadRequest(playerId.toString(), DownloadRequest.TYPE_PROGRESSIVE, dataSourceUri, mutableListOf<StreamKey>(), null, downloadNotificationName.toByteArray())
+        DownloadService.sendAddDownload(context, AudioDownloadService::class.java, downloadRequest, false)
+        startRefreshProgressTask()
+    }
+
+    fun removeDownload() {
+        val download = audioDownloadManager.downloadTracker.getDownload(dataSourceUri)
+        if (download != null) {
+            DownloadService.sendRemoveDownload(context, AudioDownloadService::class.java, download.request.id, false)
+            audioDownloadManager.downloadTracker.addListener(object : AudioDownloadTracker.Listener {
+                override fun onDownloadsChanged() {
+                    if (audioDownloadManager.downloadTracker.getDownloadState(dataSourceUri) == Download.STATE_QUEUED) {
+                        sendDownloadState()
+                        audioDownloadManager.downloadTracker.removeListener(this)
+                    }
+                }
+            })
+        }
+    }
+
+    fun initDownloadState() {
+        val download = sendDownloadState()
+        if (download != null) { //如果在STATE_DOWNLOADING状态，直到下载完成onDownloadsChanged才会回调，所以不能用startRefreshProgressTask()方法
+            startRefreshProgressTimer(null)
+        }
+    }
+
+    private fun sendDownloadState(): Download? {
+        val download: Download? = audioDownloadManager.downloadTracker.getDownload(dataSourceUri)
+        val event: MutableMap<String, Any> = HashMap()
+        event["event"] = "downloadState"
+        when (download?.state ?: Download.STATE_QUEUED) {
+            Download.STATE_COMPLETED -> {
+                event["state"] = GpDownloadState.COMPLETED
+            }
+            Download.STATE_DOWNLOADING -> {
+                event["state"] = GpDownloadState.DOWNLOADING
+                event["progress"] = download!!.percentDownloaded
+            }
+            Download.STATE_FAILED -> {
+                event["state"] = GpDownloadState.ERROR
+            }
+            else -> {
+                event["state"] = GpDownloadState.UNDOWNLOAD
+            }
+        }
+        eventSink.success(event)
+        return download
+    }
+
+    private fun startRefreshProgressTask() {
+        var isRunTask = false
+        audioDownloadManager.downloadTracker.addListener(object : AudioDownloadTracker.Listener {
+            override fun onDownloadsChanged() {
+                if (!isRunTask) {
+                    startRefreshProgressTimer(this);
+                    isRunTask = false
+                }
+            }
+        })
+    }
+
+    private fun startRefreshProgressTimer(listener: AudioDownloadTracker.Listener?) {
+        refreshProgressTimer?.cancel()
+        refreshProgressTimer = Timer()
+        val timerTask: TimerTask = object : TimerTask() {
+            override fun run() {
+                val download: Download? = audioDownloadManager.downloadTracker.getDownload(dataSourceUri)
+                sendDownloadState()
+                if (download != null && download.isTerminalState) {
+                    cancelRefreshProgressTimer()
+                    if (listener != null) {
+                        audioDownloadManager.downloadTracker.removeListener(listener)
+                    }
+                }
+            }
+        }
+        refreshProgressTimer?.schedule(timerTask, 1000, 1000)
+    }
+
+    private fun cancelRefreshProgressTimer() {
+        if (refreshProgressTimer != null) {
+            refreshProgressTimer!!.cancel()
+            refreshProgressTimer = null
+        }
     }
 }
