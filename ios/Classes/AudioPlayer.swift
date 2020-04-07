@@ -12,10 +12,16 @@ public enum AudioPlayerError: Error {
     case fileExtension, fileNotFound
 }
 
+protocol ListenAudioPlayerDelegate:NSObjectProtocol {
+    func playDidFinishByPlaying()
+}
+
 public class ListenAudioPlayer: NSObject {
     
     /// Name of the used to initialize the object
     public var name: String?
+    
+    weak var delegate:ListenAudioPlayerDelegate?
     
     /// URL of the used to initialize the object
     public let url: URL?
@@ -51,6 +57,14 @@ public class ListenAudioPlayer: NSObject {
         player?.currentTime = 0
         player?.prepareToPlay()
         super.init()
+        player?.delegate = self
+    }
+}
+
+// MARK: - AVAudioPlayerDelegate
+extension ListenAudioPlayer: AVAudioPlayerDelegate {
+    public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        self.delegate?.playDidFinishByPlaying()
     }
 }
 
