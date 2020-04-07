@@ -87,6 +87,10 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                             registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result, clipRange, loopingTimes, audioDownloadManager)
                     audioPlayers[id] = player
                 }
+                val autoCache = call.argument<Boolean>("autoCache")?:false
+                if(autoCache){
+                    player.doDownload("")
+                }
                 player.initDownloadState()
             }
             else -> {

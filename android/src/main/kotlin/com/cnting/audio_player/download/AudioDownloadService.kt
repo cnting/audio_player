@@ -48,19 +48,23 @@ class AudioDownloadService : DownloadService(
     }
 
     override fun onDownloadChanged(download: Download?) {
-        val notification: Notification? = when {
-            download?.state == Download.STATE_COMPLETED -> notificationHelper.buildDownloadCompletedNotification(
-                    android.R.drawable.stat_sys_download_done,
-                    /* contentIntent= */ null,
-                    Util.fromUtf8Bytes(download.request.data)
-            )/* contentIntent= */
-            download?.state == Download.STATE_FAILED -> notificationHelper.buildDownloadFailedNotification(
+        val notification: Notification? = when (download?.state) {
+//            Download.STATE_COMPLETED -> notificationHelper.buildDownloadCompletedNotification(
+//                    android.R.drawable.stat_sys_download_done,
+//                    /* contentIntent= */ null,
+//                    Util.fromUtf8Bytes(download.request.data)
+//            )/* contentIntent= */
+            Download.STATE_FAILED -> notificationHelper.buildDownloadFailedNotification(
                     android.R.drawable.stat_notify_error, null,
                     Util.fromUtf8Bytes(download.request.data)
             )
             else -> return
         }
-        NotificationUtil.setNotification(this, nextNotificationId++, notification)
+        if (download.state == Download.STATE_COMPLETED) {
+            NotificationUtil.setNotification(this, nextNotificationId++, null)
+        } else {
+            NotificationUtil.setNotification(this, nextNotificationId++, notification)
+        }
     }
 }
  

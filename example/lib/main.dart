@@ -21,6 +21,7 @@ class MyApp extends StatelessWidget {
             _Item('play clip range has end time', [_Clip(true)]),
             _Item('play clip range no end time', [_Clip(false)]),
             _Item('custom ui', [_CustomController()]),
+            _Item('listen download', [_DownloadItem()]),
           ],
         ),
       ),
@@ -81,25 +82,22 @@ class _SimpleState extends State<_Simple> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: <Widget>[
-      AudioPlayer(
-        audioPlayerController,
-      ),
-      _DownloadWidget(audioPlayerController)
-    ],);
+    return AudioPlayer(
+      audioPlayerController,
+    );
   }
 }
 
-class _DownloadWidget extends StatefulWidget {
+class _DownloadStateWidget extends StatefulWidget {
   final AudioPlayerController audioPlayerController;
 
-  const _DownloadWidget(this.audioPlayerController);
+  const _DownloadStateWidget(this.audioPlayerController);
 
   @override
-  __DownloadWidgetState createState() => __DownloadWidgetState();
+  _DownloadStateWidgetState createState() => _DownloadStateWidgetState();
 }
 
-class __DownloadWidgetState extends State<_DownloadWidget> {
+class _DownloadStateWidgetState extends State<_DownloadStateWidget> {
 
   int downloadState;
   double downloadProgress;
@@ -214,5 +212,37 @@ class _CustomControllerState extends State<_CustomController> {
         playController: CustomPlayController(),
       ),
     );
+  }
+}
+
+///listen download state
+class _DownloadItem extends StatefulWidget {
+  @override
+  _DownloadItemState createState() => _DownloadItemState();
+}
+
+class _DownloadItemState extends State<_DownloadItem> {
+  AudioPlayerController audioPlayerController;
+
+  @override
+  void initState() {
+    super.initState();
+    audioPlayerController = AudioPlayerController.network(url, playConfig: PlayConfig(autoPlay: false, autoCache: true)); //set auto cache
+  }
+
+  @override
+  void dispose() {
+    audioPlayerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: <Widget>[
+      AudioPlayer(
+        audioPlayerController,
+      ),
+      _DownloadStateWidget(audioPlayerController)
+    ],);
   }
 }

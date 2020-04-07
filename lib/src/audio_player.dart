@@ -170,13 +170,16 @@ class PlayConfig {
   final Duration startAt;
   final DurationRange clipRange; //play clip media
   final int loopingTimes;
+  final bool autoCache;
 
-  const PlayConfig(
-      {this.autoPlay = true,
-      this.autoInitialize = true,
-      this.startAt,
-      this.clipRange,
-      this.loopingTimes = 0})
+  const PlayConfig({
+    this.autoPlay = true,
+    this.autoInitialize = true,
+    this.startAt,
+    this.clipRange,
+    this.loopingTimes = 0,
+    this.autoCache = false
+  })
       : assert(startAt == null || clipRange == null,
   'Cannot provide both startAt and clipRange')
   ;
@@ -255,7 +258,9 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       if (playConfig.clipRange != null)
         'clipRange': playConfig.clipRange.toList(),
       if (playConfig.loopingTimes != null)
-        'loopingTimes': playConfig.loopingTimes
+        'loopingTimes': playConfig.loopingTimes,
+      if(playConfig.autoCache != null)
+        'autoCache': playConfig.autoCache
     });
     final Map<String, dynamic> response =
         await _channel.invokeMapMethod<String, dynamic>(
