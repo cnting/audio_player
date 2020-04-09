@@ -70,7 +70,6 @@ class SwiftAudioPlayer: NSObject {
     }
     
     @objc private func fire(with playLink: CADisplayLink) {
-        
         if player!.currentTime >= Double(playerDuration) {
             loopCount += 1
             seekTo(with: playerCurrentTime)
@@ -78,6 +77,7 @@ class SwiftAudioPlayer: NSObject {
                 play()
             } else if playerLoops <= loopCount {
                 pause()
+                sendPlayStateComplate()
             } else if playerLoops > loopCount {
                 play()
             }
@@ -152,6 +152,13 @@ class SwiftAudioPlayer: NSObject {
         eventSink!(["event":"playStateChanged","isPlaying":NSNumber.init(value: isPlaying)])
     }
     
+    private func sendPlayStateComplate() {
+        guard eventSink != nil else {
+            return
+        }
+        eventSink!(["event":"completed"])
+    }
+    
     private func sendInitialized() {
         if eventSink != nil && !isInitialized {
             let duration = Int(player?.duration ?? 0)
@@ -183,6 +190,7 @@ extension SwiftAudioPlayer:ListenAudioPlayerDelegate {
             play()
         } else if playerLoops <= loopCount {
             pause()
+            sendPlayStateComplate()
         } else if playerLoops > loopCount {
             seekTo(with: self.playerCurrentTime)
             play()
