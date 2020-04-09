@@ -205,7 +205,6 @@ class AudioPlayer(c: Context, private val playerId: Long, private val eventChann
             }
         })
         addExoPlayerListener()
-
         val event: MutableMap<String, Any> = HashMap()
         event["playerId"] = playerId
         result.success(event)

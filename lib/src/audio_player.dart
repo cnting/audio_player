@@ -73,16 +73,15 @@ class DurationRange {
 }
 
 class AudioPlayerValue {
-  AudioPlayerValue(
-      {@required this.duration,
-      this.position = const Duration(),
-      this.buffered = const <DurationRange>[],
-      this.isPlaying = false,
-      this.isLooping = false,
-      this.isBuffering = false,
-      this.volume = 1.0,
-      this.speed = 1.0,
-      this.errorDescription});
+  AudioPlayerValue({@required this.duration,
+    this.position = const Duration(),
+    this.buffered = const <DurationRange>[],
+    this.isPlaying = false,
+    this.isLooping = false,
+    this.isBuffering = false,
+    this.volume = 1.0,
+    this.speed = 1.0,
+    this.errorDescription});
 
   AudioPlayerValue.uninitialized() : this(duration: null);
 
@@ -124,17 +123,16 @@ class AudioPlayerValue {
 
   bool get hasError => errorDescription != null;
 
-  AudioPlayerValue copyWith(
-      {Duration duration,
-      Duration position,
-      List<DurationRange> buffered,
-      bool isPlaying,
-      bool isLooping,
-      bool isBuffering,
-      double volume,
-      double speed,
-      String errorDescription,
-      bool forceSetErrorDescription = false}) {
+  AudioPlayerValue copyWith({Duration duration,
+    Duration position,
+    List<DurationRange> buffered,
+    bool isPlaying,
+    bool isLooping,
+    bool isBuffering,
+    double volume,
+    double speed,
+    String errorDescription,
+    bool forceSetErrorDescription = false}) {
     return AudioPlayerValue(
       duration: duration ?? this.duration,
       position: position ?? this.position,
@@ -199,29 +197,35 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   StreamSubscription<dynamic> _eventSubscription;
   _AudioAppLifeCycleObserver _lifeCycleObserver;
   ValueNotifier<DownloadState> downloadNotifier = ValueNotifier(DownloadState(DownloadState.UNDOWNLOAD));
+  AudioPlayerCallback audioPlayerCallback;
 
   int get playerId => _playerId;
 
   AudioPlayerController._(this.dataSource, this.dataSourceType,
-      {this.package, this.playConfig = const PlayConfig()})
+      {this.package, this.playConfig = const PlayConfig(), this.audioPlayerCallback})
       : super(AudioPlayerValue(duration: null)) {
     _tryInitialize();
   }
 
   AudioPlayerController.asset(String dataSource,
-      {String package, PlayConfig playConfig = const PlayConfig()})
+      {String package, PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
       : this._(dataSource, DataSourceType.asset,
-            package: package, playConfig: playConfig);
+      package: package,
+      playConfig: playConfig,
+      audioPlayerCallback: audioPlayerCallback);
 
   AudioPlayerController.network(String dataSource,
-      {PlayConfig playConfig = const PlayConfig()})
+      {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
       : this._(dataSource, DataSourceType.network,
-            package: null, playConfig: playConfig);
+      package: null,
+      playConfig: playConfig,
+      audioPlayerCallback: audioPlayerCallback);
 
   AudioPlayerController.file(File file,
-      {PlayConfig playConfig = const PlayConfig()})
+      {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
       : this._('file://${file.path}', DataSourceType.file,
-            package: null, playConfig: playConfig);
+      package: null, playConfig: playConfig,
+      audioPlayerCallback: audioPlayerCallback);
 
   Future _tryInitialize() async {
     if ((playConfig.autoInitialize || playConfig.autoPlay) &&
@@ -231,7 +235,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     if (value.initialized && playConfig.startAt != null) {
       await seekTo(playConfig.startAt);
     }
-    if (playConfig.autoPlay) {
+    if (playConfig.autoPlay == true) {
       await play();
     }
   }
@@ -263,11 +267,12 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
         'autoCache': playConfig.autoCache
     });
     final Map<String, dynamic> response =
-        await _channel.invokeMapMethod<String, dynamic>(
+    await _channel.invokeMapMethod<String, dynamic>(
       'create',
       dataSourceDescription,
     );
     _playerId = response['playerId'];
+    print('===>playId:$_playerId,datasource:$dataSource');
     _creatingCompleter.complete(null);
     final Completer<void> initializingCompleter = Completer<void>();
 
@@ -290,6 +295,9 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
           break;
         case 'completed':
           value = value.copyWith(isPlaying: false, position: value.duration);
+          if (audioPlayerCallback?.onPlayComplete != null) {
+            audioPlayerCallback?.onPlayComplete();
+          }
           _cancelUpdatePositionTimer();
           break;
         case 'bufferingUpdate':
@@ -319,6 +327,9 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
               isPlaying: isPlaying,
               errorDescription: null,
               forceSetErrorDescription: true);
+          if (audioPlayerCallback?.onPlayStateChange != null) {
+            audioPlayerCallback?.onPlayStateChange(value);
+          }
           break;
         case 'downloadState':
           final int state = map['state'];
@@ -396,6 +407,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     if (!value.initialized || _isDisposed) {
       return;
     }
+    print('===>_applyPlayPause(),_playerId:$_playerId');
     if (isPlay) {
       await _channel.invokeMethod<void>(
         'play',
@@ -413,7 +425,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   _startUpdatePositionTimer() {
     _updatePositionTimer = Timer.periodic(
       const Duration(milliseconds: 500),
-      (Timer timer) async {
+          (Timer timer) async {
         if (_isDisposed) {
           return;
         }
@@ -541,4 +553,12 @@ class _AudioAppLifeCycleObserver extends Object with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
   }
+}
+
+
+class AudioPlayerCallback {
+  AudioPlayerCallback({this.onPlayComplete, this.onPlayStateChange});
+
+  VoidCallback onPlayComplete;
+  Function(AudioPlayerValue) onPlayStateChange;
 }
