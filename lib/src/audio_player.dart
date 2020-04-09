@@ -272,7 +272,6 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       dataSourceDescription,
     );
     _playerId = response['playerId'];
-    print('===>playId:$_playerId,datasource:$dataSource');
     _creatingCompleter.complete(null);
     final Completer<void> initializingCompleter = Completer<void>();
 
@@ -407,7 +406,6 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     if (!value.initialized || _isDisposed) {
       return;
     }
-    print('===>_applyPlayPause(),_playerId:$_playerId');
     if (isPlay) {
       await _channel.invokeMethod<void>(
         'play',
