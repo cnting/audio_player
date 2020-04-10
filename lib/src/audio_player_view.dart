@@ -18,7 +18,7 @@ class AudioPlayer extends StatefulWidget {
 class _AudioPlayerState extends State<AudioPlayer> {
   _AudioPlayerState() {
     _listener = () {
-      final int newPlayerId = widget.controller.playerId;
+      final String newPlayerId = widget.controller.playerId;
       if (newPlayerId != _playerId) {
         setState(() {
           _playerId = newPlayerId;
@@ -28,7 +28,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
   }
 
   VoidCallback _listener;
-  int _playerId;
+  String _playerId;
 
   @override
   void initState() {

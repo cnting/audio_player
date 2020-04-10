@@ -8,6 +8,7 @@ class SwiftAudioPlayer: NSObject {
     private var isInitialized: Bool! = false
     var playerCurrentTime: Int! = 0
     var playerDuration: Int! = 0
+    private var playerShortDuration: Double! = 0.0
     private var playerClipRange: [Int]! = []
     private var playerLoops: Int! = 0
     private var loopCount: Int! = 0
@@ -52,10 +53,12 @@ class SwiftAudioPlayer: NSObject {
             }
             if (lastValue != -1) {//-1表示播放到音频末尾
                 playerDuration = lastValue/1000
+                playerShortDuration = Double(lastValue)/1000.0
                 createDisplayLink()
             } else {
                 player?.delegate = self
                 playerDuration = Int(player!.duration);
+//                seekTo(with: playerDuration - 10)
             }
             
             playerLoops = numberOfLoops
@@ -70,7 +73,7 @@ class SwiftAudioPlayer: NSObject {
     }
     
     @objc private func fire(with playLink: CADisplayLink) {
-        if player!.currentTime >= Double(playerDuration) {
+        if player!.currentTime >= playerShortDuration {
             loopCount += 1
             seekTo(with: playerCurrentTime)
             if playerLoops == -1 {
@@ -229,13 +232,14 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
         messenger = registrar.messenger()
         registrars = registrar
         super.init()
-        players = NSMutableDictionary.init(capacity: 1)
+        players = NSMutableDictionary.init()
     }
     
-    private func currentTimeMillis() -> Int {
+    private func currentTimeMillis() -> String {
         let now = NSDate()
         let timeInterval:TimeInterval = now.timeIntervalSince1970
-        return Int(timeInterval)
+        return "\(timeInterval)"
+//        return Int(timeInterval)
     }
     
     private func onPlayer(setUp player: SwiftAudioPlayer, on result: FlutterResult) {
@@ -249,7 +253,7 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
         
     }
 
-    private func onMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult, _ playerId: Int, _ player: SwiftAudioPlayer) {
+    private func onMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult, _ playerId: String, _ player: SwiftAudioPlayer) {
         let argsMap = call.arguments as? Dictionary<String, Any>
         guard argsMap != nil else {
             result(FlutterError.init(code: "Unknown arguments", message: "No audio player arguments associated with arguments", details: nil))
@@ -344,7 +348,7 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
     } else {
         let argsMap = call.arguments as? Dictionary<String, Any>
         if argsMap != nil {
-            let playerId = argsMap!["playerId"] as? Int
+            let playerId = argsMap!["playerId"] as? String
             if playerId != nil {
                 let player = players[(playerId!)] as? SwiftAudioPlayer
                 if player == nil {

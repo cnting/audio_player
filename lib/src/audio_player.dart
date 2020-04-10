@@ -186,7 +186,7 @@ class PlayConfig {
 enum DataSourceType { asset, network, file }
 
 class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
-  int _playerId;
+  String _playerId;
   final String dataSource;
   final DataSourceType dataSourceType;
   final String package;
@@ -199,7 +199,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   ValueNotifier<DownloadState> downloadNotifier = ValueNotifier(DownloadState(DownloadState.UNDOWNLOAD));
   AudioPlayerCallback audioPlayerCallback;
 
-  int get playerId => _playerId;
+  String get playerId => _playerId;
 
   AudioPlayerController._(this.dataSource, this.dataSourceType,
       {this.package, this.playConfig = const PlayConfig(), this.audioPlayerCallback})
@@ -271,6 +271,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
       'create',
       dataSourceDescription,
     );
+    
     _playerId = response['playerId'];
     _creatingCompleter.complete(null);
     final Completer<void> initializingCompleter = Completer<void>();
@@ -355,7 +356,7 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     return initializingCompleter.future;
   }
 
-  EventChannel _eventChannelFor(int playerId) {
+  EventChannel _eventChannelFor(String playerId) {
     return EventChannel('cnting.com/audio_player/audioEvents$playerId');
   }
 
