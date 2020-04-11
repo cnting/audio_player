@@ -65,7 +65,8 @@ class SwiftAudioPlayer: NSObject {
         } else {
             playerLoops = numberOfLoops
             playerCurrentTime = 0
-            playerDuration = Int(player!.duration)
+            let obj = ceil(player!.duration)
+            playerDuration = Int(obj);
             player?.delegate = self
         }
         
