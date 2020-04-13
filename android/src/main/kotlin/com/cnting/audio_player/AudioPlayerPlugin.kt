@@ -28,7 +28,7 @@ import java.util.*
 
 class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 
-    private var audioPlayers = mutableMapOf<Long, AudioPlayer>()
+    private var audioPlayers = mutableMapOf<String, AudioPlayer>()
     private val audioDownloadManager: AudioDownloadManager = AudioDownloadManager.getInstance(registrar.activeContext().applicationContext)
 
     companion object {
@@ -57,7 +57,7 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
         when (call.method) {
             "init" -> disposeAllPlayers()
             "create" -> {
-                val id = System.currentTimeMillis()
+                val id = System.currentTimeMillis().toString()
                 val eventChannel = EventChannel(registrar.messenger(), "cnting.com/audio_player/audioEvents$id")
                 val player: AudioPlayer
                 var clipRange: List<Long>? = null
@@ -91,7 +91,7 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                 player.initDownloadState(autoCache)
             }
             else -> {
-                val playerId = call.argument<Long>("playerId") ?: 0
+                val playerId: String = call.argument<String>("playerId") ?: "0"
                 val audioPlayer = audioPlayers[playerId]
                 if (audioPlayer == null) {
                     result.error("Unknown playerId",
@@ -104,7 +104,7 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
         }
     }
 
-    private fun onMethodCall(call: MethodCall, result: Result, playerId: Long, player: AudioPlayer) {
+    private fun onMethodCall(call: MethodCall, result: Result, playerId: String, player: AudioPlayer) {
         when (call.method) {
             "setLooping" -> {
                 player.setLooping(call.argument<Boolean>("looping")!!)
@@ -156,7 +156,7 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 
 }
 
-class AudioPlayer(c: Context, private val playerId: Long, private val eventChannel: EventChannel,
+class AudioPlayer(c: Context, private val playerId: String, private val eventChannel: EventChannel,
                   dataSource: String, private val result: Result, private val clipRange: List<Long>?,
                   private val loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager) {
 
