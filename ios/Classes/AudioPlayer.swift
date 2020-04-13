@@ -14,6 +14,7 @@ public enum AudioPlayerError: Error {
 
 protocol ListenAudioPlayerDelegate:NSObjectProtocol {
     func playDidFinishByPlaying()
+    func playerPlayDidError()
 }
 
 public class ListenAudioPlayer: NSObject {
@@ -56,6 +57,7 @@ public class ListenAudioPlayer: NSObject {
         player?.numberOfLoops = 0
         player?.currentTime = 0
         player?.prepareToPlay()
+        
         super.init()
         player?.delegate = self
     }
@@ -65,6 +67,10 @@ public class ListenAudioPlayer: NSObject {
 extension ListenAudioPlayer: AVAudioPlayerDelegate {
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         self.delegate?.playDidFinishByPlaying()
+    }
+    
+    public func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        self.delegate?.playerPlayDidError()
     }
 }
 

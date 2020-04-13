@@ -57,15 +57,16 @@ class SwiftAudioPlayer: NSObject {
                 createDisplayLink()
             } else {
                 player?.delegate = self
-                playerDuration = Int(player!.duration);
-//                seekTo(with: playerDuration - 10)
+                let obj = ceil(player!.duration)
+                playerDuration = Int(obj);
             }
             
             playerLoops = numberOfLoops
         } else {
             playerLoops = numberOfLoops
             playerCurrentTime = 0
-            playerDuration = Int(player!.duration)
+            let obj = ceil(player!.duration)
+            playerDuration = Int(obj);
             player?.delegate = self
         }
         
@@ -146,6 +147,7 @@ class SwiftAudioPlayer: NSObject {
             return
         }
         eventSink!(["event":"bufferingUpdate","values":[playerCurrentTime * 1000,playerDuration * 1000 - playerCurrentTime * 1000]])
+        
     }
     
     private func sendPlayStateChanged(with isPlaying: Bool) {
@@ -165,7 +167,7 @@ class SwiftAudioPlayer: NSObject {
     private func sendInitialized() {
         if eventSink != nil && !isInitialized {
             let duration = Int(player?.duration ?? 0)
-            if duration == 0 {
+            if duration == 0 && playerDuration == 0 {
                 return
             }
             isInitialized = true
@@ -185,6 +187,12 @@ class SwiftAudioPlayer: NSObject {
 }
 
 extension SwiftAudioPlayer:ListenAudioPlayerDelegate {
+    
+    func playerPlayDidError() {
+        pause()
+        sendPlayStateComplate()
+    }
+    
     func playDidFinishByPlaying() {
         loopCount += 1
 //        seekTo(with: self.playerCurrentTime)
