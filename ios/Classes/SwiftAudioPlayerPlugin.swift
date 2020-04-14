@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 
+
 class SwiftAudioPlayer: NSObject {
     
     var player: ListenAudioPlayer?
@@ -24,10 +25,10 @@ class SwiftAudioPlayer: NSObject {
     public init(with url: String, _ clipRange: [Int], _ numberOfLoops: Int) throws {
         isInitialized = false
         isPlaying = false
+        
         if url.hasPrefix("http") || url.hasPrefix("https") {
             player = try ListenAudioPlayer.init(contentsOf: URL.init(string: url)!)
         } else {
-            
             if url.contains("file://") {
                 let filePath = url as NSString;
                 let path = filePath.substring(from: url.count - (url.count - 7))
@@ -147,6 +148,10 @@ class SwiftAudioPlayer: NSObject {
             return
         }
         eventSink!(["event":"bufferingUpdate","values":[playerCurrentTime * 1000,playerDuration * 1000 - playerCurrentTime * 1000]])
+        
+    }
+    
+    public func removeAllAudioCache() {
         
     }
     
@@ -298,6 +303,8 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
         } else if call.method == AudioPlayerMethodCallName.setSpeed {
             let rate: Double = Double(truncating: argsMap!["speed"] as! NSNumber)
             player.setRate(with: rate)
+        } else if call.method == AudioPlayerMethodCallName.removeDownload {
+            player.removeAllAudioCache()
         } else {
             result(FlutterMethodNotImplemented)
         }
