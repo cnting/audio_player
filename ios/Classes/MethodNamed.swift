@@ -18,4 +18,5 @@ struct AudioPlayerMethodCallName {
     static let position = "position"
     static let dispose = "dispose"
     static let setSpeed = "setSpeed"
+    static let removeDownload = "removeDownload"
 }
