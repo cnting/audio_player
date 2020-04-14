@@ -187,55 +187,82 @@ enum DataSourceType { asset, network, file }
 
 class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   String _playerId;
-  final String dataSource;
-  final DataSourceType dataSourceType;
-  final String package;
-  final PlayConfig playConfig;
+  String _dataSource;
+  DataSourceType _dataSourceType;
+  String _package;
+  PlayConfig _playConfig;
+
   Timer _updatePositionTimer;
   bool _isDisposed = false;
   Completer<void> _creatingCompleter;
+  Completer<void> _initializingCompleter;
   StreamSubscription<dynamic> _eventSubscription;
   _AudioAppLifeCycleObserver _lifeCycleObserver;
   ValueNotifier<DownloadState> downloadNotifier = ValueNotifier(DownloadState(DownloadState.UNDOWNLOAD));
-  AudioPlayerCallback audioPlayerCallback;
+  AudioPlayerCallback _audioPlayerCallback;
 
   String get playerId => _playerId;
 
-  AudioPlayerController._(this.dataSource, this.dataSourceType,
-      {this.package, this.playConfig = const PlayConfig(), this.audioPlayerCallback})
+  AudioPlayerController._(this._dataSource, this._dataSourceType,
+      this._package, this._playConfig, this._audioPlayerCallback)
       : super(AudioPlayerValue(duration: null)) {
     _tryInitialize();
   }
 
   AudioPlayerController.asset(String dataSource,
       {String package, PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
-      : this._(dataSource, DataSourceType.asset,
-      package: package,
-      playConfig: playConfig,
-      audioPlayerCallback: audioPlayerCallback);
+      : this._(dataSource, DataSourceType.asset, package, playConfig, audioPlayerCallback);
 
   AudioPlayerController.network(String dataSource,
       {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
-      : this._(dataSource, DataSourceType.network,
-      package: null,
-      playConfig: playConfig,
-      audioPlayerCallback: audioPlayerCallback);
+      : this._(dataSource, DataSourceType.network, null, playConfig, audioPlayerCallback);
 
   AudioPlayerController.file(File file,
       {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
-      : this._('file://${file.path}', DataSourceType.file,
-      package: null, playConfig: playConfig,
-      audioPlayerCallback: audioPlayerCallback);
+      : this._('file://${file.path}', DataSourceType.file, null, playConfig, audioPlayerCallback);
 
   Future _tryInitialize() async {
-    if ((playConfig.autoInitialize || playConfig.autoPlay) &&
+    if ((_playConfig.autoInitialize || _playConfig.autoPlay) &&
         !value.initialized) {
       await initialize();
     }
-    if (value.initialized && playConfig.startAt != null) {
-      await seekTo(playConfig.startAt);
+    if (value.initialized && _playConfig.startAt != null) {
+      await seekTo(_playConfig.startAt);
     }
-    if (playConfig.autoPlay == true) {
+    if (_playConfig.autoPlay == true) {
+      await play();
+    }
+  }
+
+  Future resetDataSource(String dataSource,
+      {DataSourceType dataSourceType, String package, PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback}) async {
+    assert(_playerId != null, 'please call constructor first!');
+    _applyPlayPause(false);
+    // do reset
+    this.value = AudioPlayerValue.uninitialized();
+    this._dataSource = dataSource;
+    this._dataSourceType = dataSourceType;
+    this._package = package ?? this._package;
+    this._playConfig = playConfig ?? this._playConfig;
+    this._audioPlayerCallback = audioPlayerCallback ?? this._audioPlayerCallback;
+
+    _creatingCompleter = Completer<void>();
+    _initializingCompleter = Completer<void>();
+
+    var params = _getDataSourceDescription();
+    params.putIfAbsent('playerId', () => _playerId);
+    final Map<String, dynamic> response =
+    await _channel.invokeMapMethod<String, dynamic>(
+      'reset',
+      params,
+    );
+    _creatingCompleter.complete(null);
+    await _initializingCompleter.future;
+
+    if (value.initialized && _playConfig.startAt != null) {
+      await seekTo(_playConfig.startAt);
+    }
+    if (_playConfig.autoPlay == true) {
       await play();
     }
   }
@@ -244,100 +271,16 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     _lifeCycleObserver = _AudioAppLifeCycleObserver(this);
     _lifeCycleObserver.initialize();
     _creatingCompleter = Completer<void>();
-    Map<dynamic, dynamic> dataSourceDescription;
-    switch (dataSourceType) {
-      case DataSourceType.asset:
-        dataSourceDescription = <String, dynamic>{
-          'asset': dataSource,
-          'package': package
-        };
-        break;
-      case DataSourceType.network:
-        dataSourceDescription = <String, dynamic>{'uri': dataSource};
-        break;
-      case DataSourceType.file:
-        dataSourceDescription = <String, dynamic>{'uri': dataSource};
-    }
-    dataSourceDescription.addAll(<String, dynamic>{
-      if (playConfig.clipRange != null)
-        'clipRange': playConfig.clipRange.toList(),
-      if (playConfig.loopingTimes != null)
-        'loopingTimes': playConfig.loopingTimes,
-      if(playConfig.autoCache != null)
-        'autoCache': playConfig.autoCache
-    });
+
     final Map<String, dynamic> response =
     await _channel.invokeMapMethod<String, dynamic>(
       'create',
-      dataSourceDescription,
+      _getDataSourceDescription(),
     );
-    
+
     _playerId = response['playerId'];
     _creatingCompleter.complete(null);
-    final Completer<void> initializingCompleter = Completer<void>();
-
-    void eventListener(dynamic event) {
-      if (_isDisposed) {
-        return;
-      }
-
-      final Map<dynamic, dynamic> map = event;
-      switch (map['event']) {
-        case 'initialized':
-          value = value.copyWith(
-              duration: Duration(milliseconds: map['duration']),
-              errorDescription: null,
-              forceSetErrorDescription: true);
-          initializingCompleter.complete(null);
-          _applyLooping();
-          _applyVolume();
-          _applyPlayPause(value.isPlaying);
-          break;
-        case 'completed':
-          value = value.copyWith(isPlaying: false, position: value.duration);
-          if (audioPlayerCallback?.onPlayComplete != null) {
-            audioPlayerCallback?.onPlayComplete();
-          }
-          _cancelUpdatePositionTimer();
-          break;
-        case 'bufferingUpdate':
-          final List<dynamic> values = map['values'];
-          value =
-              value.copyWith(buffered: [DurationRange.toDurationRange(values)]);
-          break;
-        case 'bufferingStart':
-          value = value.copyWith(
-            isBuffering: true,
-          );
-          break;
-        case 'bufferingEnd':
-          value = value.copyWith(
-            isBuffering: false,
-          );
-          break;
-        case 'playStateChanged':
-          final bool isPlaying = map['isPlaying'];
-
-          if (isPlaying && !(_updatePositionTimer?.isActive ?? false)) {
-            _startUpdatePositionTimer();
-          } else if (!isPlaying) {
-            _cancelUpdatePositionTimer();
-          }
-          value = value.copyWith(
-              isPlaying: isPlaying,
-              errorDescription: null,
-              forceSetErrorDescription: true);
-          if (audioPlayerCallback?.onPlayStateChange != null) {
-            audioPlayerCallback?.onPlayStateChange(value);
-          }
-          break;
-        case 'downloadState':
-          final int state = map['state'];
-          double progress = map['progress'];
-          downloadNotifier.value = DownloadState(state, progress: progress);
-          break;
-      }
-    }
+    _initializingCompleter = Completer<void>();
 
     void errorListener(Object obj) {
       final PlatformException e = obj;
@@ -353,7 +296,96 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     _eventSubscription = _eventChannelFor(_playerId)
         .receiveBroadcastStream()
         .listen(eventListener, onError: errorListener);
-    return initializingCompleter.future;
+    return _initializingCompleter.future;
+  }
+
+  void eventListener(dynamic event) {
+    if (_isDisposed) {
+      return;
+    }
+
+    final Map<dynamic, dynamic> map = event;
+    switch (map['event']) {
+      case 'initialized':
+        value = value.copyWith(
+            duration: Duration(milliseconds: map['duration']),
+            errorDescription: null,
+            forceSetErrorDescription: true);
+        _initializingCompleter.complete(null);
+        _applyLooping();
+        _applyVolume();
+        _applyPlayPause(value.isPlaying);
+        break;
+      case 'completed':
+        value = value.copyWith(isPlaying: false, position: value.duration);
+        if (_audioPlayerCallback?.onPlayComplete != null) {
+          _audioPlayerCallback?.onPlayComplete();
+        }
+        _cancelUpdatePositionTimer();
+        break;
+      case 'bufferingUpdate':
+        final List<dynamic> values = map['values'];
+        value =
+            value.copyWith(buffered: [DurationRange.toDurationRange(values)]);
+        break;
+      case 'bufferingStart':
+        value = value.copyWith(
+          isBuffering: true,
+        );
+        break;
+      case 'bufferingEnd':
+        value = value.copyWith(
+          isBuffering: false,
+        );
+        break;
+      case 'playStateChanged':
+        final bool isPlaying = map['isPlaying'];
+
+        if (isPlaying && !(_updatePositionTimer?.isActive ?? false)) {
+          _startUpdatePositionTimer();
+        } else if (!isPlaying) {
+          _cancelUpdatePositionTimer();
+        }
+        value = value.copyWith(
+            isPlaying: isPlaying,
+            errorDescription: null,
+            forceSetErrorDescription: true);
+        if (_audioPlayerCallback?.onPlayStateChange != null) {
+          _audioPlayerCallback?.onPlayStateChange(value);
+        }
+        break;
+      case 'downloadState':
+        final int state = map['state'];
+        double progress = map['progress'];
+        downloadNotifier.value = DownloadState(state, progress: progress);
+        break;
+    }
+  }
+
+  Map<dynamic, dynamic> _getDataSourceDescription() {
+    Map<dynamic, dynamic> dataSourceDescription;
+    switch (_dataSourceType) {
+      case DataSourceType.asset:
+        dataSourceDescription = <String, dynamic>{
+          'asset': _dataSource,
+          'package': _package
+        };
+        break;
+      case DataSourceType.network:
+        dataSourceDescription = <String, dynamic>{'uri': _dataSource};
+        break;
+      case DataSourceType.file:
+        dataSourceDescription = <String, dynamic>{'uri': _dataSource};
+    }
+    dataSourceDescription.addAll(<String, dynamic>{
+      if (_playConfig.clipRange != null)
+        'clipRange': _playConfig.clipRange.toList(),
+      if (_playConfig.loopingTimes != null)
+        'loopingTimes': _playConfig.loopingTimes,
+      if(_playConfig.autoCache != null)
+        'autoCache': _playConfig.autoCache
+    });
+    return dataSourceDescription;
   }
 
   EventChannel _eventChannelFor(String playerId) {

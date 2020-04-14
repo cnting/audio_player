@@ -65,43 +65,68 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                     clipRange = call.argument<List<Long>>("clipRange")
                 }
                 val loopingTimes = call.argument<Int>("loopingTimes") ?: 0
-                if (call.argument<Any?>("asset") != null) {
-                    val assetLookupKey = if (call.argument<Any?>("package") != null) {
-                        registrar.lookupKeyForAsset(call.argument("asset"), call.argument("package"))
-                    } else {
-                        registrar.lookupKeyForAsset(call.argument("asset"))
-                    }
-                    player = AudioPlayer(
-                            registrar.context(),
-                            id,
-                            eventChannel = eventChannel,
-                            dataSource = "asset:///$assetLookupKey",
-                            result = result,
-                            clipRange = clipRange,
-                            loopingTimes = loopingTimes,
-                            audioDownloadManager = audioDownloadManager
-                    )
-                    audioPlayers[id] = player
-                } else {
-                    player = AudioPlayer(
-                            registrar.context(), id, eventChannel, call.argument<String>("uri")!!, result, clipRange, loopingTimes, audioDownloadManager)
-                    audioPlayers[id] = player
-                }
+                val dataSource: String = getDataSource(call)
+                player = AudioPlayer(
+                        registrar.context(),
+                        id,
+                        eventChannel = eventChannel,
+                        dataSource = dataSource,
+                        result = result,
+                        clipRange = clipRange?.toMutableList(),
+                        loopingTimes = loopingTimes,
+                        audioDownloadManager = audioDownloadManager
+                )
+                audioPlayers[id] = player
                 val autoCache = call.argument<Boolean>("autoCache")?:false
                 player.initDownloadState(autoCache)
             }
+            "reset" -> {
+                val playerId: String = call.argument<String>("playerId") ?: "0"
+                checkPlayerId(playerId, result) { player ->
+                    var clipRange: List<Long>? = null
+                    if (call.argument<Any?>("clipRange") != null) {
+                        clipRange = call.argument<List<Long>>("clipRange")
+                    }
+                    val loopingTimes = call.argument<Int>("loopingTimes") ?: 0
+                    val dataSource: String = getDataSource(call)
+                    player.reset(dataSource, clipRange, loopingTimes)
+                    // TODO: 这里需要看下
+                    val autoCache = call.argument<Boolean>("autoCache") ?: false
+                    player.initDownloadState(autoCache)
+                }
+                result.success(null)
+            }
             else -> {
                 val playerId: String = call.argument<String>("playerId") ?: "0"
-                val audioPlayer = audioPlayers[playerId]
-                if (audioPlayer == null) {
-                    result.error("Unknown playerId",
-                            "No audio player associated with player id $playerId",
-                            null)
-                    return
+                checkPlayerId(playerId, result) {
+                    onMethodCall(call, result, playerId, it)
                 }
-                onMethodCall(call, result, playerId, audioPlayer)
             }
         }
+    }
+
+    private fun getDataSource(call: MethodCall): String {
+        return if (call.argument<Any?>("asset") != null) {
+            val assetLookupKey = if (call.argument<Any?>("package") != null) {
+                registrar.lookupKeyForAsset(call.argument("asset"), call.argument("package"))
+            } else {
+                registrar.lookupKeyForAsset(call.argument("asset"))
+            }
+            "asset:///$assetLookupKey"
+        } else {
+            call.argument<String>("uri")!!
+        }
+    }
+
+    private fun checkPlayerId(playerId: String, result: Result, next: (AudioPlayer) -> Unit) {
+        val audioPlayer = audioPlayers[playerId]
+        if (audioPlayer == null) {
+            result.error("Unknown playerId",
+                    "No audio player associated with player id $playerId",
+                    null)
+            return
+        }
+        next(audioPlayer)
     }
 
     private fun onMethodCall(call: MethodCall, result: Result, playerId: String, player: AudioPlayer) {
@@ -157,8 +182,8 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
 }
 
 class AudioPlayer(c: Context, private val playerId: String, private val eventChannel: EventChannel,
-                  dataSource: String, private val result: Result, private val clipRange: List<Long>?,
-                  private val loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager) {
+                  dataSource: String, private val result: Result, val clipRange: MutableList<Long>?,
+                  private var loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager) {
 
     private lateinit var exoPlayer: SimpleExoPlayer
     private val eventSink = QueuingEventSink()
@@ -179,6 +204,38 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.CONTENT_TYPE_MUSIC)
                 .build(), true)
+
+        resetMediaSource()
+
+        eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(p0: Any?, sink: EventChannel.EventSink?) {
+                eventSink.setDelegate(sink)
+            }
+
+            override fun onCancel(p0: Any?) {
+                eventSink.setDelegate(null)
+            }
+        })
+        addExoPlayerListener()
+        val event: MutableMap<String, Any> = HashMap()
+        event["playerId"] = playerId
+        result.success(event)
+    }
+
+    fun reset(dataSource: String, clipRange: List<Long>? = null,
+              loopingTimes: Int = 0) {
+        this.dataSourceUri = Uri.parse(dataSource)
+        this.clipRange?.clear()
+        if (clipRange != null) {
+            this.clipRange?.addAll(clipRange)
+        }
+        this.loopingTimes = loopingTimes
+        this.isInitialized = false
+
+        resetMediaSource()
+    }
+
+    private fun resetMediaSource() {
         var mediaSource = buildMediaSource()
 
         //set clip range
@@ -194,20 +251,6 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
         }
 
         exoPlayer.prepare(mediaSource)
-
-        eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
-            override fun onListen(p0: Any?, sink: EventChannel.EventSink?) {
-                eventSink.setDelegate(sink)
-            }
-
-            override fun onCancel(p0: Any?) {
-                eventSink.setDelegate(null)
-            }
-        })
-        addExoPlayerListener()
-        val event: MutableMap<String, Any> = HashMap()
-        event["playerId"] = playerId
-        result.success(event)
     }
 
     private fun buildMediaSource(): MediaSource {

@@ -40,7 +40,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
   @override
   void didUpdateWidget(AudioPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    oldWidget.controller.removeListener(_listener);
+    oldWidget.controller?.removeListener(_listener);
     _playerId = widget.controller.playerId;
     widget.controller.addListener(_listener);
   }
