@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -185,13 +184,25 @@ class PlayConfig {
 
 enum DataSourceType { asset, network, file }
 
-class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
-  String _playerId;
-  String _dataSource;
+class DataSource {
+  String _sourcePath;
   DataSourceType _dataSourceType;
   String _package;
-  PlayConfig _playConfig;
 
+  DataSource._(this._sourcePath, this._dataSourceType, this._package);
+
+  DataSource.asset(String dataSource, {String package}) :this._(dataSource, DataSourceType.asset, package);
+
+  DataSource.file(String dataSource) :this._(dataSource, DataSourceType.file, null);
+
+  DataSource.network(String dataSource) :this._(dataSource, DataSourceType.network, null);
+}
+
+class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
+  String _playerId;
+  DataSource _dataSource;
+  PlayConfig _playConfig;
+  AudioPlayerCallback _audioPlayerCallback;
   Timer _updatePositionTimer;
   bool _isDisposed = false;
   Completer<void> _creatingCompleter;
@@ -199,27 +210,16 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
   StreamSubscription<dynamic> _eventSubscription;
   _AudioAppLifeCycleObserver _lifeCycleObserver;
   ValueNotifier<DownloadState> downloadNotifier = ValueNotifier(DownloadState(DownloadState.UNDOWNLOAD));
-  AudioPlayerCallback _audioPlayerCallback;
 
   String get playerId => _playerId;
 
-  AudioPlayerController._(this._dataSource, this._dataSourceType,
-      this._package, this._playConfig, this._audioPlayerCallback)
+  AudioPlayerController(this._dataSource,
+      {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
       : super(AudioPlayerValue(duration: null)) {
+    this._playConfig = playConfig;
+    this._audioPlayerCallback = audioPlayerCallback;
     _tryInitialize();
   }
-
-  AudioPlayerController.asset(String dataSource,
-      {String package, PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
-      : this._(dataSource, DataSourceType.asset, package, playConfig, audioPlayerCallback);
-
-  AudioPlayerController.network(String dataSource,
-      {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
-      : this._(dataSource, DataSourceType.network, null, playConfig, audioPlayerCallback);
-
-  AudioPlayerController.file(File file,
-      {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback})
-      : this._('file://${file.path}', DataSourceType.file, null, playConfig, audioPlayerCallback);
 
   Future _tryInitialize() async {
     if ((_playConfig.autoInitialize || _playConfig.autoPlay) &&
@@ -234,15 +234,12 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     }
   }
 
-  Future resetDataSource(String dataSource,
-      {DataSourceType dataSourceType, String package, PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback}) async {
+  Future resetDataSource(DataSource dataSource,
+      {PlayConfig playConfig = const PlayConfig(), AudioPlayerCallback audioPlayerCallback}) async {
     assert(_playerId != null, 'please call constructor first!');
-    _applyPlayPause(false);
     // do reset
     this.value = AudioPlayerValue.uninitialized();
     this._dataSource = dataSource;
-    this._dataSourceType = dataSourceType;
-    this._package = package ?? this._package;
     this._playConfig = playConfig ?? this._playConfig;
     this._audioPlayerCallback = audioPlayerCallback ?? this._audioPlayerCallback;
 
@@ -259,10 +256,10 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     _creatingCompleter.complete(null);
     await _initializingCompleter.future;
 
-    if (value.initialized && _playConfig.startAt != null) {
-      await seekTo(_playConfig.startAt);
+    if (value.initialized && playConfig.startAt != null) {
+      await seekTo(playConfig.startAt);
     }
-    if (_playConfig.autoPlay == true) {
+    if (playConfig.autoPlay == true) {
       await play();
     }
   }
@@ -364,18 +361,18 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
 
   Map<dynamic, dynamic> _getDataSourceDescription() {
     Map<dynamic, dynamic> dataSourceDescription;
-    switch (_dataSourceType) {
+    switch (_dataSource._dataSourceType) {
       case DataSourceType.asset:
         dataSourceDescription = <String, dynamic>{
-          'asset': _dataSource,
-          'package': _package
+          'asset': _dataSource._sourcePath,
+          'package': _dataSource._package
         };
         break;
       case DataSourceType.network:
-        dataSourceDescription = <String, dynamic>{'uri': _dataSource};
+        dataSourceDescription = <String, dynamic>{'uri': _dataSource._sourcePath};
         break;
       case DataSourceType.file:
-        dataSourceDescription = <String, dynamic>{'uri': _dataSource};
+        dataSourceDescription = <String, dynamic>{'uri': _dataSource._sourcePath};
     }
     dataSourceDescription.addAll(<String, dynamic>{
       if (_playConfig.clipRange != null)
