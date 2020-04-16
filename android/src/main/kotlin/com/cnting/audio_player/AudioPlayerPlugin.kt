@@ -2,6 +2,7 @@ package com.cnting.audio_player
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.cnting.audio_player.download.AudioDownloadManager
 import com.cnting.audio_player.download.AudioDownloadService
 import com.cnting.audio_player.download.AudioDownloadTracker
@@ -284,6 +285,7 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
             }
 
             override fun onPlayerError(error: ExoPlaybackException?) {
+                error?.printStackTrace()
                 eventSink?.error("AudioError", "Audio player had error $error", error?.message)
             }
 
