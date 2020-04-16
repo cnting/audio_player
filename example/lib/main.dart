@@ -68,7 +68,7 @@ class _SimpleState extends State<_Simple> {
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController.network(url);
+    audioPlayerController = AudioPlayerController(DataSource.network(url));
     audioPlayerController.addListener(() {
       print('===>listener:${audioPlayerController.value}');
     });
@@ -152,7 +152,7 @@ class _ClipState extends State<_Clip> {
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController.network(url,
+    audioPlayerController = AudioPlayerController(DataSource.network(url),
         playConfig: PlayConfig(
             clipRange: DurationRange.fromList(
                 [
@@ -194,7 +194,7 @@ class _CustomControllerState extends State<_CustomController> {
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController.asset('assets/Utakata.mp3',
+    audioPlayerController = AudioPlayerController(DataSource.asset('assets/Utakata.mp3'),
         playConfig: PlayConfig(autoPlay: false));
   }
 
@@ -227,7 +227,7 @@ class _DownloadItemState extends State<_DownloadItem> {
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController.network(url, playConfig: PlayConfig(autoPlay: false, autoCache: true)); //set auto cache
+    audioPlayerController = AudioPlayerController(DataSource.network(url), playConfig: PlayConfig(autoPlay: false, autoCache: true)); //set auto cache
   }
 
   @override

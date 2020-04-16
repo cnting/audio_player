@@ -224,6 +224,7 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
 
     fun reset(dataSource: String, clipRange: List<Long>? = null,
               loopingTimes: Int = 0) {
+        exoPlayer.stop(true)
         this.dataSourceUri = Uri.parse(dataSource)
         this.clipRange?.clear()
         if (clipRange != null) {
