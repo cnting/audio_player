@@ -360,6 +360,33 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
             }
         } else {result(FlutterMethodNotImplemented)}
         
+    } else if call.method == AudioPlayerMethodCallName.reset {
+        let argsMap = call.arguments as? Dictionary<String, Any>
+        if argsMap != nil {
+            let playerId = argsMap!["playerId"] as? String
+            if playerId != nil {
+                let player = players[(playerId!)] as? SwiftAudioPlayer
+                if player == nil {
+                    result(FlutterError.init(code: "Unknown playerId", message: "No audio player associated with player id \(playerId!)", details: nil))
+                    return
+                }
+                var clipRange: [Int] = [Int]()
+                var numberOfLoops: Int = 0
+                
+                let cr = argsMap!["clipRange"]
+                let nols = argsMap!["loopingTimes"]
+                
+                if cr != nil {
+                    clipRange = cr! as! [Int]
+                }
+                if nols != nil {
+                    numberOfLoops = nols! as! Int
+                }
+                onMethodCall(call, result: result, playerId!, player!)
+            }
+        }
+        
+        
     } else {
         let argsMap = call.arguments as? Dictionary<String, Any>
         if argsMap != nil {
