@@ -14,32 +14,101 @@ class SwiftAudioPlayer: NSObject {
     private var playerLoops: Int! = 0
     private var loopCount: Int! = 0
     private var displayLink: CADisplayLink!
+    private var playerUrl: String! = ""
     fileprivate var eventChannel: FlutterEventChannel?
     fileprivate var eventSink: FlutterEventSink?
     
-    public convenience init(on asset: String, _ clipRange: [Int], _ numberOfLoops: Int) throws {
+    public convenience init(on asset: String, _ clipRange: [Int], _ numberOfLoops: Int, _ autoCache: Bool) throws {
         let path = Bundle.main.path(forResource: asset, ofType: nil) ?? ""
-        try self.init(with:path,clipRange,numberOfLoops)
+        try self.init(with:path,clipRange,numberOfLoops,autoCache)
     }
     
-    public init(with url: String, _ clipRange: [Int], _ numberOfLoops: Int) throws {
+    public init(with url: String, _ clipRange: [Int], _ numberOfLoops: Int, _ autoCache: Bool) throws {
+        super.init()
         isInitialized = false
         isPlaying = false
         
-        if url.hasPrefix("http") || url.hasPrefix("https") {
-            player = try ListenAudioPlayer.init(contentsOf: URL.init(string: url)!)
+        let audioUrl = AudioDownloadUtil.session.getDesignatedUrlfileCachePath(with: url)
+        guard audioUrl != nil else {
+            return
+        }
+        initAudioPlayer(with: audioUrl!, clipRange, numberOfLoops, autoCache)
+    }
+    
+    public func resetPlayer(with url: String?,on asset: String?, _ clipRange: [Int], _ numberOfLoops: Int, _ autoCache: Bool) {
+        isInitialized = false
+        isPlaying = false
+        var downloadUrl = ""
+        if asset != nil {
+            downloadUrl = Bundle.main.path(forResource: asset, ofType: nil) ?? ""
+        } else if (url != nil) {
+            downloadUrl = url!
+        }
+        guard !downloadUrl.isEmpty else {
+            return
+        }
+        let audioUrl = AudioDownloadUtil.session.getDesignatedUrlfileCachePath(with: downloadUrl)
+        guard audioUrl != nil else {
+            return
+        }
+        //链接不同需要重新初始化player
+        if self.playerUrl != audioUrl! {
+            initAudioPlayer(with: audioUrl!, clipRange, numberOfLoops, autoCache)
+            return
+        }
+        
+        self.loopCount = 0
+        if clipRange.count != 0 {
+            playerClipRange = clipRange
+            let firstValue: Int = clipRange[0]
+            let lastValue: Int = clipRange[1]
+            
+            if (firstValue == 0) {
+                playerCurrentTime = 0
+            } else {
+                playerCurrentTime = firstValue/1000
+            }
+            if (lastValue != -1) {//-1表示播放到音频末尾
+                playerDuration = lastValue/1000
+                playerShortDuration = Double(lastValue)/1000.0
+            } else {
+                let obj = ceil(player!.duration)
+                playerDuration = Int(obj);
+            }
+            
+            playerLoops = numberOfLoops
         } else {
+            playerLoops = numberOfLoops
+            playerCurrentTime = 0
+            let obj = ceil(player!.duration)
+            playerDuration = Int(obj);
+        }
+        seekTo(with: playerCurrentTime)
+        sendInitialized()
+        
+    }
+    
+    private func initAudioPlayer(with url: String, _ clipRange: [Int], _ numberOfLoops: Int, _ autoCache: Bool) {
+        self.playerUrl = url
+        self.loopCount = 0
+        if url.hasPrefix("http") || url.hasPrefix("https") {
+            do {
+                player = try ListenAudioPlayer.init(contentsOf: URL.init(string: url)!)
+            } catch {}
+            
+            initDownloadState(autoCache)
+        } else {
+            var cachePath = url
+            
             if url.contains("file://") {
                 let filePath = url as NSString;
                 let path = filePath.substring(from: url.count - (url.count - 7))
-                player = try ListenAudioPlayer.init(contentsOfPath: path)
-
-            } else {
-                player = try ListenAudioPlayer.init(contentsOfPath: url)
-
+                cachePath = path
             }
+            do {
+                player = try ListenAudioPlayer.init(contentsOfPath: cachePath)
+            } catch {}
         }
-        super.init()
         
         if clipRange.count != 0 {
             playerClipRange = clipRange
@@ -50,7 +119,6 @@ class SwiftAudioPlayer: NSObject {
                 playerCurrentTime = 0
             } else {
                 playerCurrentTime = firstValue/1000
-                seekTo(with: playerCurrentTime)
             }
             if (lastValue != -1) {//-1表示播放到音频末尾
                 playerDuration = lastValue/1000
@@ -70,7 +138,7 @@ class SwiftAudioPlayer: NSObject {
             playerDuration = Int(obj);
             player?.delegate = self
         }
-        
+        seekTo(with: playerCurrentTime)
         sendInitialized()
     }
     
@@ -86,6 +154,12 @@ class SwiftAudioPlayer: NSObject {
             } else if playerLoops > loopCount {
                 play()
             }
+        }
+    }
+    
+    private func initDownloadState(_ autoCache: Bool) {
+        if autoCache {
+            AudioDownloadUtil.session.startDownloadTask(with: playerUrl)
         }
     }
     
@@ -152,7 +226,7 @@ class SwiftAudioPlayer: NSObject {
     }
     
     public func removeAllAudioCache() {
-        
+        AudioDownloadUtil.session.clearAudioCaches()
     }
     
     private func sendPlayStateChanged(with isPlaying: Bool) {
@@ -167,6 +241,13 @@ class SwiftAudioPlayer: NSObject {
             return
         }
         eventSink!(["event":"completed"])
+    }
+    
+    private func sendPlayStateError() {
+        guard eventSink != nil else {
+            return
+        }
+        eventSink!(FlutterError.init(code: "audio_player_error", message: "throws custom error", details: nil))
     }
     
     private func sendInitialized() {
@@ -195,12 +276,11 @@ extension SwiftAudioPlayer:ListenAudioPlayerDelegate {
     
     func playerPlayDidError() {
         pause()
-        sendPlayStateComplate()
+        sendPlayStateError()
     }
     
     func playDidFinishByPlaying() {
         loopCount += 1
-//        seekTo(with: self.playerCurrentTime)
         if playerLoops == -1 {
             seekTo(with: self.playerCurrentTime)
             play()
@@ -252,7 +332,6 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
         let now = NSDate()
         let timeInterval:TimeInterval = now.timeIntervalSince1970
         return "\(timeInterval)"
-//        return Int(timeInterval)
     }
     
     private func onPlayer(setUp player: SwiftAudioPlayer, on result: FlutterResult) {
@@ -309,21 +388,17 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
             result(FlutterMethodNotImplemented)
         }
     }
-
-  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    if call.method == AudioPlayerMethodCallName.inited {
-        players.forEach { (object) in
-            let player = object.value as! SwiftAudioPlayer
-            player.dispose()
-        }
-        players.removeAllObjects()
-        result(nil)
-    } else if call.method == AudioPlayerMethodCallName.create {
+    //1:url 2:assetPath 3:clipRange 4:loopingTimes 5:autoCache
+    private func methodCallSource(_ call: FlutterMethodCall) -> (String?,String?,[Int],Int,Bool) {
         let argsMap = call.arguments as? Dictionary<String, Any>
         if argsMap != nil {
             let asset = argsMap!["asset"] as? String
             let urlStr = argsMap!["uri"] as? String
-            var player: SwiftAudioPlayer!
+            var autoCache = argsMap!["autoCache"] as? Bool
+            if autoCache == nil {
+                autoCache = false
+            }
+            
             var clipRange: [Int] = [Int]()
             var numberOfLoops: Int = 0
             
@@ -345,20 +420,43 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
                 } else {
                     assetPath = registrars.lookupKey(forAsset: asset ?? "")
                 }
-                do {
-                    player = try SwiftAudioPlayer.init(on: assetPath,clipRange,numberOfLoops)
-                    onPlayer(setUp: player, on: result)
-                } catch {}
+                return (nil,assetPath,clipRange,numberOfLoops,autoCache!)
             } else if urlStr != nil {
-                do {
-                    player = try SwiftAudioPlayer.init(with: urlStr!,clipRange,numberOfLoops)
-                    onPlayer(setUp: player, on: result)
-                } catch {}
-                
-            } else {
-                result(FlutterMethodNotImplemented)
+                return (urlStr!,nil,clipRange,numberOfLoops,autoCache!)
             }
-        } else {result(FlutterMethodNotImplemented)}
+        }
+        return (nil,nil,[],0,false)
+    }
+
+  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    if call.method == AudioPlayerMethodCallName.inited {
+        players.forEach { (object) in
+            let player = object.value as! SwiftAudioPlayer
+            player.dispose()
+        }
+        players.removeAllObjects()
+        result(nil)
+    } else if call.method == AudioPlayerMethodCallName.create {
+        var player: SwiftAudioPlayer!
+        let object = methodCallSource(call)
+        let urlStr = object.0
+        let assetPath = object.1
+        let clipRange = object.2
+        let numberOfLoops = object.3
+        let autoCache = object.4
+        if urlStr != nil {
+            do {
+                player = try SwiftAudioPlayer.init(with: urlStr!,clipRange,numberOfLoops,autoCache)
+                onPlayer(setUp: player, on: result)
+            } catch {result(FlutterMethodNotImplemented)}
+        } else if assetPath != nil {
+            do {
+                player = try SwiftAudioPlayer.init(on: assetPath!,clipRange,numberOfLoops,autoCache)
+                onPlayer(setUp: player, on: result)
+            } catch {result(FlutterMethodNotImplemented)}
+        } else {
+            result(FlutterMethodNotImplemented)
+        }
         
     } else if call.method == AudioPlayerMethodCallName.reset {
         let argsMap = call.arguments as? Dictionary<String, Any>
@@ -370,23 +468,17 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
                     result(FlutterError.init(code: "Unknown playerId", message: "No audio player associated with player id \(playerId!)", details: nil))
                     return
                 }
-                var clipRange: [Int] = [Int]()
-                var numberOfLoops: Int = 0
-                
-                let cr = argsMap!["clipRange"]
-                let nols = argsMap!["loopingTimes"]
-                
-                if cr != nil {
-                    clipRange = cr! as! [Int]
-                }
-                if nols != nil {
-                    numberOfLoops = nols! as! Int
-                }
+                let object = methodCallSource(call)
+                let urlStr = object.0
+                let assetPath = object.1
+                let clipRange = object.2
+                let numberOfLoops = object.3
+                let autoCache = object.4
+                player?.resetPlayer(with: urlStr, on: assetPath, clipRange, numberOfLoops,autoCache)
+                onPlayer(setUp: player!, on: result)
                 onMethodCall(call, result: result, playerId!, player!)
             }
-        }
-        
-        
+        } else {result(FlutterMethodNotImplemented)}
     } else {
         let argsMap = call.arguments as? Dictionary<String, Any>
         if argsMap != nil {
