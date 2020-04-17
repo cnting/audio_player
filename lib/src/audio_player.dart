@@ -409,7 +409,10 @@ class AudioPlayerController extends ValueNotifier<AudioPlayerValue> {
     super.dispose();
   }
 
-  Future<void> play() async {
+  Future<void> play({bool autoInitial = false}) async {
+    if (autoInitial && value.initialized != true) {
+      await initialize();
+    }
     await _applyPlayPause(true);
   }
 
