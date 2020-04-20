@@ -15,6 +15,8 @@ public enum AudioPlayerError: Error {
 protocol ListenAudioPlayerDelegate:NSObjectProtocol {
     func playDidFinishByPlaying()
     func playerPlayDidError()
+    func playerbufferingStart()
+    func playerbufferingEnd()
 }
 
 public class ListenAudioPlayer: NSObject {
@@ -26,7 +28,7 @@ public class ListenAudioPlayer: NSObject {
     
     /// URL of the used to initialize the object
     public let url: URL?
-    fileprivate let player: AVAudioPlayer?
+    fileprivate var player: AVAudioPlayer?
     
     // MARK: Init
     
@@ -49,17 +51,54 @@ public class ListenAudioPlayer: NSObject {
     
     public init(contentsOf url: URL) throws {
         self.url = url
-        let data = try Data.init(contentsOf: url)
         name = url.lastPathComponent
-        player = try AVAudioPlayer.init(data: data, fileTypeHint: AVFileType.mp3.rawValue)
-        try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback)
-        try AVAudioSession.sharedInstance().setActive(true)
-        player?.numberOfLoops = 0
-        player?.currentTime = 0
-        player?.prepareToPlay()
-        
         super.init()
-        player?.delegate = self
+    }
+    
+    public func resetPlayer() {
+        guard self.url != nil else {
+            return
+        }
+        sendbufferingStart()
+        DispatchQueue.global().async {
+            do {
+                let data = try Data.init(contentsOf: self.url!)
+                DispatchQueue.main.async {
+                    do {
+                        self.player = try AVAudioPlayer.init(data: data, fileTypeHint: AVFileType.mp3.rawValue)
+                        try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback)
+                        try AVAudioSession.sharedInstance().setActive(true)
+                        self.player?.numberOfLoops = 0
+                        self.player?.currentTime = 0
+                        self.player?.prepareToPlay()
+                        self.player?.delegate = self
+                        self.sendbufferingEnd()
+                    } catch {
+                        self.sendError()
+                    }
+                }
+            } catch {
+                self.sendError()
+            }
+        }
+    }
+    
+    private func sendError() {
+        DispatchQueue.main.async {
+            self.delegate?.playerPlayDidError()
+        }
+    }
+    
+    private func sendbufferingStart() {
+        DispatchQueue.main.async {
+            self.delegate?.playerbufferingStart()
+        }
+    }
+    
+    private func sendbufferingEnd() {
+        DispatchQueue.main.async {
+            self.delegate?.playerbufferingEnd()
+        }
     }
 }
 
@@ -70,7 +109,7 @@ extension ListenAudioPlayer: AVAudioPlayerDelegate {
     }
     
     public func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        self.delegate?.playerPlayDidError()
+        sendError()
     }
 }
 

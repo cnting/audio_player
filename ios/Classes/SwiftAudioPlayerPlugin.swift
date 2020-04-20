@@ -39,6 +39,8 @@ class SwiftAudioPlayer: NSObject {
     public func resetPlayer(with url: String?,on asset: String?, _ clipRange: [Int], _ numberOfLoops: Int, _ autoCache: Bool) {
         isInitialized = false
         isPlaying = false
+        playerClipRange = clipRange
+        playerLoops = numberOfLoops
         var downloadUrl = ""
         if asset != nil {
             downloadUrl = Bundle.main.path(forResource: asset, ofType: nil) ?? ""
@@ -60,7 +62,6 @@ class SwiftAudioPlayer: NSObject {
         
         self.loopCount = 0
         if clipRange.count != 0 {
-            playerClipRange = clipRange
             let firstValue: Int = clipRange[0]
             let lastValue: Int = clipRange[1]
             
@@ -76,10 +77,7 @@ class SwiftAudioPlayer: NSObject {
                 let obj = ceil(player!.duration)
                 playerDuration = Int(obj);
             }
-            
-            playerLoops = numberOfLoops
         } else {
-            playerLoops = numberOfLoops
             playerCurrentTime = 0
             let obj = ceil(player!.duration)
             playerDuration = Int(obj);
@@ -92,9 +90,13 @@ class SwiftAudioPlayer: NSObject {
     private func initAudioPlayer(with url: String, _ clipRange: [Int], _ numberOfLoops: Int, _ autoCache: Bool) {
         self.playerUrl = url
         self.loopCount = 0
+        playerClipRange = clipRange
+        playerLoops = numberOfLoops
         if url.hasPrefix("http") || url.hasPrefix("https") {
             do {
                 player = try ListenAudioPlayer.init(contentsOf: URL.init(string: url)!)
+                player?.delegate = self
+                player?.resetPlayer()
             } catch {}
             
             initDownloadState(autoCache)
@@ -108,11 +110,14 @@ class SwiftAudioPlayer: NSObject {
             }
             do {
                 player = try ListenAudioPlayer.init(contentsOfPath: cachePath)
+                player?.delegate = self
+                player?.resetPlayer()
             } catch {}
         }
-        
+    }
+    
+    private func config(_ clipRange: [Int], _ numberOfLoops: Int, _ flag: Bool) {
         if clipRange.count != 0 {
-            playerClipRange = clipRange
             let firstValue: Int = clipRange[0]
             let lastValue: Int = clipRange[1]
             
@@ -124,24 +129,27 @@ class SwiftAudioPlayer: NSObject {
             if (lastValue != -1) {//-1表示播放到音频末尾
                 playerDuration = lastValue/1000
                 playerShortDuration = Double(lastValue)/1000.0
-                createDisplayLink()
+                if flag {
+                    createDisplayLink()
+                }
             } else {
                 player?.delegate = self
                 let obj = ceil(player!.duration)
                 playerDuration = Int(obj);
             }
             
-            playerLoops = numberOfLoops
         } else {
-            playerLoops = numberOfLoops
             playerCurrentTime = 0
             let obj = ceil(player!.duration)
             playerDuration = Int(obj);
             player?.delegate = self
         }
-        seekTo(with: playerCurrentTime)
-        sendInitialized()
-        addNotification()
+        if flag {
+            seekTo(with: playerCurrentTime)
+            sendInitialized()
+            addNotification()
+        }
+        
     }
     
     @objc private func fire(with playLink: CADisplayLink) {
@@ -252,7 +260,20 @@ class SwiftAudioPlayer: NSObject {
             return
         }
         eventSink!(["event":"bufferingUpdate","values":[playerCurrentTime * 1000,playerDuration * 1000 - playerCurrentTime * 1000]])
-        
+    }
+    
+    private func sendBufferingStart() {
+        guard eventSink != nil else {
+            return
+        }
+        eventSink!(["event":"bufferingStart"])
+    }
+    
+    private func sendBufferingEnd() {
+        guard eventSink != nil else {
+            return
+        }
+        eventSink!(["event":"bufferingEnd"])
     }
     
     public func removeAllAudioCache() {
@@ -323,6 +344,15 @@ extension SwiftAudioPlayer:ListenAudioPlayerDelegate {
             seekTo(with: self.playerCurrentTime)
             play()
         }
+    }
+    
+    func playerbufferingStart() {
+//        sendBufferingStart()
+    }
+    
+    func playerbufferingEnd() {
+//        sendBufferingEnd()
+        config(self.playerClipRange, self.playerLoops,true)
     }
 }
 
