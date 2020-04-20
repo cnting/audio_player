@@ -15,6 +15,7 @@ class SwiftAudioPlayer: NSObject {
     private var loopCount: Int! = 0
     private var displayLink: CADisplayLink!
     private var playerUrl: String! = ""
+    private var wasPlayingBeforePause: Bool! = false
     fileprivate var eventChannel: FlutterEventChannel?
     fileprivate var eventSink: FlutterEventSink?
     
@@ -140,6 +141,7 @@ class SwiftAudioPlayer: NSObject {
         }
         seekTo(with: playerCurrentTime)
         sendInitialized()
+        addNotification()
     }
     
     @objc private func fire(with playLink: CADisplayLink) {
@@ -168,6 +170,34 @@ class SwiftAudioPlayer: NSObject {
         displayLink.add(to: RunLoop.current, forMode: RunLoop.Mode.common)
         displayLink.isPaused = true
         sendInitialized()
+    }
+    
+    private func addNotification() {
+        NotificationCenter.default.addObserver(self, selector:#selector(becomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector:#selector(becomeDeath), name: UIApplication.willResignActiveNotification, object: nil)
+    }
+    
+    private func removeNotification() {
+        NotificationCenter.default.removeObserver(self, name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIApplication.willResignActiveNotification, object: nil)
+    }
+    
+    @objc func becomeActive(noti:Notification) {
+//        print("进入前台")
+        if wasPlayingBeforePause {
+            play()
+        }
+    }
+    
+    @objc func becomeDeath(noti:Notification) {
+        guard player != nil else {
+            return
+        }
+//        print("进入后台")
+        wasPlayingBeforePause = player!.isPlaying
+        if player!.isPlaying {
+            pause()
+        }
     }
     
     public func play() {
@@ -233,6 +263,7 @@ class SwiftAudioPlayer: NSObject {
         guard eventSink != nil else {
             return
         }
+//        print(">>>>>>>>>>>>audio_player当前状态是:\(isPlaying)")
         eventSink!(["event":"playStateChanged","isPlaying":NSNumber.init(value: isPlaying)])
     }
     
@@ -268,6 +299,7 @@ class SwiftAudioPlayer: NSObject {
         }
         displayLink?.invalidate()
         eventChannel?.setStreamHandler(nil)
+        removeNotification()
     }
     
 }

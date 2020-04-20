@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -569,12 +569,16 @@ class _AudioAppLifeCycleObserver extends Object with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
-        _wasPlayingBeforePause = _controller.value.isPlaying;
-        _controller.pause();
+        if (!Platform.isIOS) {
+          _wasPlayingBeforePause = _controller.value.isPlaying;
+          _controller.pause();
+        }
         break;
       case AppLifecycleState.resumed:
-        if (_wasPlayingBeforePause) {
-          _controller.play();
+        if (!Platform.isIOS) {
+          if (_wasPlayingBeforePause) {
+            _controller.play();
+          }
         }
         break;
       default:
