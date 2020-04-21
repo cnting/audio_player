@@ -91,7 +91,6 @@ class AudioPlayerPlugin(private val registrar: Registrar) : MethodCallHandler {
                     val loopingTimes = call.argument<Int>("loopingTimes") ?: 0
                     val dataSource: String = getDataSource(call)
                     player.reset(dataSource, clipRange, loopingTimes)
-                    // TODO: 这里需要看下
                     val autoCache = call.argument<Boolean>("autoCache") ?: false
                     player.initDownloadState(autoCache)
                 }
@@ -261,6 +260,7 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
     }
 
     private fun addExoPlayerListener() {
+        var lastPlaybackState: Int = Player.STATE_IDLE
         exoPlayer.addListener(object : Player.EventListener {
             override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
                 when (playbackState) {
@@ -277,11 +277,14 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
                         }
                     }
                     Player.STATE_ENDED -> {
-                        val event: MutableMap<String, Any> = HashMap()
-                        event["event"] = "completed"
-                        eventSink.success(event)
+                        if (lastPlaybackState != playbackState) {
+                            val event: MutableMap<String, Any> = HashMap()
+                            event["event"] = "completed"
+                            eventSink.success(event)
+                        }
                     }
                 }
+                lastPlaybackState = playbackState
             }
 
             override fun onPlayerError(error: ExoPlaybackException?) {
