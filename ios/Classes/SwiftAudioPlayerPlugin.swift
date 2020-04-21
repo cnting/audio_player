@@ -117,6 +117,7 @@ class SwiftAudioPlayer: NSObject {
     }
     
     private func config(_ clipRange: [Int], _ numberOfLoops: Int, _ flag: Bool) {
+        isInitialized = false
         if clipRange.count != 0 {
             let firstValue: Int = clipRange[0]
             let lastValue: Int = clipRange[1]
