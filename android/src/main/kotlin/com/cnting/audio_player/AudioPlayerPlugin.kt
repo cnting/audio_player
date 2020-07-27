@@ -411,7 +411,6 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
 
     fun initDownloadState(autoCache: Boolean) {
         val download = sendDownloadState()
-        Log.d("===>", "downloadState:${download?.state}")
         if (autoCache && download?.state != Download.STATE_DOWNLOADING && download?.state != Download.STATE_COMPLETED) {
             doDownload("")
         }
@@ -424,7 +423,6 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
         val download: Download? = audioDownloadManager.downloadTracker.getDownload(dataSourceUri)
         val event: MutableMap<String, Any> = HashMap()
         event["event"] = "downloadState"
-        Log.i("===>", "sendDownloadState:${download?.state}")
         when (download?.state ?: Download.STATE_QUEUED) {
             Download.STATE_COMPLETED -> {
                 event["state"] = GpDownloadState.COMPLETED
