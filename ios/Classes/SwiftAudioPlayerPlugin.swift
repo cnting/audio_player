@@ -405,6 +405,14 @@ public class SwiftAudioPlayerPlugin: NSObject, FlutterPlugin {
         player.eventChannel = eventChannel
         players[id] = player
         result(["playerId":(id)])
+        if players.count != 0 {
+            for e in players {
+                let p = e.value as! SwiftAudioPlayer
+                if p.player?.isPlaying ?? false {
+                    p.pause()
+                }
+            }
+        }
         
     }
 
