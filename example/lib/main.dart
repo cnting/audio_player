@@ -63,7 +63,7 @@ class _Simple extends StatefulWidget {
 }
 
 class _SimpleState extends State<_Simple> {
-  AudioPlayerController audioPlayerController;
+  late AudioPlayerController audioPlayerController;
 
   @override
   void initState() {
@@ -98,17 +98,18 @@ class _DownloadStateWidget extends StatefulWidget {
 }
 
 class _DownloadStateWidgetState extends State<_DownloadStateWidget> {
-
-  int downloadState;
-  double downloadProgress;
+  int downloadState =  DownloadState.UNDOWNLOAD;
+  double downloadProgress = 0;
 
   @override
   void initState() {
     super.initState();
     widget.audioPlayerController.downloadNotifier.addListener(() {
       setState(() {
-        downloadState = widget.audioPlayerController.downloadNotifier.value.state;
-        downloadProgress = widget.audioPlayerController.downloadNotifier.value.progress;
+        downloadState =
+            widget.audioPlayerController.downloadNotifier.value.state ?? 0;
+        downloadProgress =
+            widget.audioPlayerController.downloadNotifier.value.progress ?? 0;
       });
     });
   }
@@ -116,7 +117,7 @@ class _DownloadStateWidgetState extends State<_DownloadStateWidget> {
   @override
   Widget build(BuildContext context) {
     var text;
-    if (downloadState == null || downloadState == DownloadState.UNDOWNLOAD) {
+    if (downloadState == DownloadState.UNDOWNLOAD) {
       text = Text('点击下载');
     } else if (downloadState == DownloadState.COMPLETED) {
       text = Text('下载完成，点击删除');
@@ -125,19 +126,22 @@ class _DownloadStateWidgetState extends State<_DownloadStateWidget> {
     } else {
       text = Text('下载进度:$downloadProgress');
     }
-    return RaisedButton(child: text, onPressed: () {
-      if (downloadState == null || downloadState == DownloadState.UNDOWNLOAD || downloadState == DownloadState.ERROR) {
-        widget.audioPlayerController.download('正在下载音频...');
-      } else if (downloadState == DownloadState.COMPLETED) {
-        widget.audioPlayerController.removeDownload();
-      }
-    },);
+    return ElevatedButton(
+      child: text,
+      onPressed: () {
+        if (downloadState == DownloadState.UNDOWNLOAD ||
+            downloadState == DownloadState.ERROR) {
+          widget.audioPlayerController.download('正在下载音频...');
+        } else if (downloadState == DownloadState.COMPLETED) {
+          widget.audioPlayerController.removeDownload();
+        }
+      },
+    );
   }
 }
 
 ///播放片段
 class _Clip extends StatefulWidget {
-
   final bool hasEndTime;
 
   const _Clip(this.hasEndTime);
@@ -147,7 +151,7 @@ class _Clip extends StatefulWidget {
 }
 
 class _ClipState extends State<_Clip> {
-  AudioPlayerController audioPlayerController;
+  late AudioPlayerController audioPlayerController;
 
   @override
   void initState() {
@@ -155,14 +159,9 @@ class _ClipState extends State<_Clip> {
     audioPlayerController = AudioPlayerController(DataSource.network(url),
         playConfig: PlayConfig(
             clipRange: DurationRange.fromList(
-                [
-                  5 * 1000,
-                  if(widget.hasEndTime)
-                    10 * 1000
-                ]),
+                [5 * 1000, if (widget.hasEndTime) 10 * 1000]),
             autoPlay: false,
-            loopingTimes: 2
-        ));
+            loopingTimes: 2));
   }
 
   @override
@@ -189,12 +188,13 @@ class _CustomController extends StatefulWidget {
 }
 
 class _CustomControllerState extends State<_CustomController> {
-  AudioPlayerController audioPlayerController;
+  late AudioPlayerController audioPlayerController;
 
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController(DataSource.asset('assets/Utakata.mp3'),
+    audioPlayerController = AudioPlayerController(
+        DataSource.asset('assets/Utakata.mp3'),
         playConfig: PlayConfig(autoPlay: false));
   }
 
@@ -222,12 +222,14 @@ class _DownloadItem extends StatefulWidget {
 }
 
 class _DownloadItemState extends State<_DownloadItem> {
-  AudioPlayerController audioPlayerController;
+  late AudioPlayerController audioPlayerController;
 
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController(DataSource.network(url), playConfig: PlayConfig(autoPlay: false, autoCache: true)); //set auto cache
+    audioPlayerController = AudioPlayerController(DataSource.network(url),
+        playConfig:
+            PlayConfig(autoPlay: false, autoCache: true)); //set auto cache
   }
 
   @override
@@ -238,11 +240,13 @@ class _DownloadItemState extends State<_DownloadItem> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: <Widget>[
-      AudioPlayer(
-        audioPlayerController,
-      ),
-      _DownloadStateWidget(audioPlayerController)
-    ],);
+    return Column(
+      children: <Widget>[
+        AudioPlayer(
+          audioPlayerController,
+        ),
+        _DownloadStateWidget(audioPlayerController)
+      ],
+    );
   }
 }

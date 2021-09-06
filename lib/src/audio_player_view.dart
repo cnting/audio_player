@@ -9,7 +9,7 @@ class AudioPlayer extends StatefulWidget {
   AudioPlayer(this.controller, {this.playController});
 
   final AudioPlayerController controller;
-  final Widget playController;
+  final Widget? playController;
 
   @override
   _AudioPlayerState createState() => _AudioPlayerState();
@@ -18,7 +18,7 @@ class AudioPlayer extends StatefulWidget {
 class _AudioPlayerState extends State<AudioPlayer> {
   _AudioPlayerState() {
     _listener = () {
-      final String newPlayerId = widget.controller.playerId;
+      final String? newPlayerId = widget.controller.playerId;
       if (newPlayerId != _playerId) {
         setState(() {
           _playerId = newPlayerId;
@@ -27,8 +27,8 @@ class _AudioPlayerState extends State<AudioPlayer> {
     };
   }
 
-  VoidCallback _listener;
-  String _playerId;
+  late VoidCallback _listener;
+  String? _playerId;
 
   @override
   void initState() {
@@ -40,7 +40,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
   @override
   void didUpdateWidget(AudioPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    oldWidget.controller?.removeListener(_listener);
+    oldWidget.controller.removeListener(_listener);
     _playerId = widget.controller.playerId;
     widget.controller.addListener(_listener);
   }
@@ -59,10 +59,10 @@ class _AudioPlayerState extends State<AudioPlayer> {
 //            child: Text('playId为空'),
 //            )
 //        :
-      AudioPlayerControllerProvider(
-            controller: widget.controller,
-            child: widget.playController ?? DefaultPlayControllerWidget(),
-          );
+        AudioPlayerControllerProvider(
+      controller: widget.controller,
+      child: widget.playController ?? DefaultPlayControllerWidget(),
+    );
   }
 }
 
@@ -70,7 +70,7 @@ class AudioPlayerControllerProvider extends InheritedWidget {
   final AudioPlayerController controller;
 
   const AudioPlayerControllerProvider(
-      {Key key, @required this.controller, @required Widget child})
+      {Key? key, required this.controller, required Widget child})
       : super(key: key, child: child);
 
   @override
@@ -78,10 +78,10 @@ class AudioPlayerControllerProvider extends InheritedWidget {
     return oldWidget.controller != controller;
   }
 
-  static AudioPlayerController of(BuildContext context) {
-    AudioPlayerControllerProvider provider =
-        context.inheritFromWidgetOfExactType(AudioPlayerControllerProvider);
-    return provider.controller;
+  static AudioPlayerController? of(BuildContext context) {
+    AudioPlayerControllerProvider? provider =
+        context.findAncestorWidgetOfExactType();
+    return provider?.controller;
   }
 }
 
@@ -99,8 +99,8 @@ class AudioProgressColors {
 
 class AudioScrubber extends StatefulWidget {
   AudioScrubber({
-    @required this.child,
-    @required this.controller,
+    required this.child,
+    required this.controller,
   });
 
   final Widget child;
@@ -118,10 +118,10 @@ class _AudioScrubberState extends State<AudioScrubber> {
   @override
   Widget build(BuildContext context) {
     void seekToRelativePosition(Offset globalPosition) {
-      final RenderBox box = context.findRenderObject();
+      final RenderBox box = context.findRenderObject() as RenderBox;
       final Offset tapPos = box.globalToLocal(globalPosition);
       final double relative = tapPos.dx / box.size.width;
-      final Duration position = controller.value.duration * relative;
+      final Duration position = controller.value.duration! * relative;
       controller.seekTo(position);
     }
 
@@ -161,7 +161,7 @@ class _AudioScrubberState extends State<AudioScrubber> {
 class AudioProgressIndicator extends StatefulWidget {
   AudioProgressIndicator(
     this.controller, {
-    AudioProgressColors colors,
+    AudioProgressColors? colors,
     this.allowScrubbing = true,
     this.padding = const EdgeInsets.only(top: 5.0),
   }) : colors = colors ?? AudioProgressColors();
@@ -185,7 +185,7 @@ class _AudioProgressIndicatorState extends State<AudioProgressIndicator> {
     };
   }
 
-  VoidCallback listener;
+  late VoidCallback listener;
 
   AudioPlayerController get controller => widget.controller;
 
@@ -207,7 +207,7 @@ class _AudioProgressIndicatorState extends State<AudioProgressIndicator> {
   Widget build(BuildContext context) {
     Widget progressIndicator;
     if (controller.value.initialized) {
-      final int duration = controller.value.duration.inMilliseconds;
+      final int duration = controller.value.duration!.inMilliseconds;
       final int position = controller.value.position.inMilliseconds;
 
       int maxBuffering = 0;

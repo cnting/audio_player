@@ -15,5 +15,8 @@
             android:exported="true"
             android:name="com.google.android.exoplayer2.scheduler.PlatformScheduler$PlatformSchedulerService"
             android:permission="android.permission.BIND_JOB_SERVICE"/>
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
     </application>
 </manifest>

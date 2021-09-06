@@ -8,19 +8,19 @@ import 'utils.dart';
 ///
 
 class PlayControllerWidget extends StatefulWidget {
-  final Builder errorBuilder;
+  final Builder? errorBuilder;
   final Widget Function(BuildContext context, AudioPlayerController controller,
       AudioPlayerValue latestValue) builder;
 
-  const PlayControllerWidget({this.builder, this.errorBuilder});
+  const PlayControllerWidget(this.builder,{this.errorBuilder});
 
   @override
   _PlayControllerWidgetState createState() => _PlayControllerWidgetState();
 }
 
 class _PlayControllerWidgetState extends State<PlayControllerWidget> {
-  AudioPlayerValue _latestValue;
-  AudioPlayerController _controller;
+  AudioPlayerValue? _latestValue;
+  AudioPlayerController? _controller;
 
   @override
   void didChangeDependencies() {
@@ -35,10 +35,10 @@ class _PlayControllerWidgetState extends State<PlayControllerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (_latestValue.hasError) {
+    if (_latestValue!.hasError) {
       return widget.errorBuilder ?? Container();
     }
-    return widget.builder(context, _controller, _latestValue);
+    return widget.builder(context, _controller!, _latestValue!);
   }
 
   @override
@@ -48,23 +48,23 @@ class _PlayControllerWidgetState extends State<PlayControllerWidget> {
   }
 
   void _dispose() {
-    _controller.removeListener(_updateState);
+    _controller!.removeListener(_updateState);
   }
 
   void _initialize() {
-    _controller.addListener(_updateState);
+    _controller!.addListener(_updateState);
     _updateState();
   }
 
   void _updateState() {
     setState(() {
-      _latestValue = _controller.value;
+      _latestValue = _controller!.value;
     });
   }
 }
 
 class DefaultPlayControllerWidget extends StatefulWidget {
-  final bool allowScrubbing;
+  final bool? allowScrubbing;
 
   const DefaultPlayControllerWidget({this.allowScrubbing});
 
@@ -80,7 +80,7 @@ class _DefaultPlayControllerWidgetState
   @override
   Widget build(BuildContext context) {
     return PlayControllerWidget(
-      builder: (context, AudioPlayerController controller,
+       (context, AudioPlayerController controller,
           AudioPlayerValue latestValue) {
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: 8),
@@ -145,7 +145,7 @@ class _DefaultPlayControllerWidgetState
         ? latestValue.position
         : Duration.zero;
     final duration = latestValue != null && latestValue.duration != null
-        ? latestValue.duration
+        ? latestValue.duration!
         : Duration.zero;
 
     return Padding(

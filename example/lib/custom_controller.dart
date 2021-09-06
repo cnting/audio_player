@@ -13,7 +13,7 @@ class _CustomPlayControllerState extends State<CustomPlayController> {
   @override
   Widget build(BuildContext context) {
     return PlayControllerWidget(
-      builder: (context, AudioPlayerController controller,
+       (context, AudioPlayerController controller,
           AudioPlayerValue latestValue) {
         return Stack(
           alignment: Alignment.center,
@@ -79,7 +79,7 @@ class _CustomPlayControllerState extends State<CustomPlayController> {
 class _ProgressIndicator extends StatefulWidget {
   _ProgressIndicator(
     this.controller, {
-    AudioProgressColors colors,
+    AudioProgressColors? colors,
   }) : colors = colors ?? AudioProgressColors();
 
   final AudioPlayerController controller;
@@ -99,7 +99,7 @@ class _ProgressIndicatorState extends State<_ProgressIndicator> {
     };
   }
 
-  VoidCallback listener;
+  late VoidCallback listener;
 
   AudioPlayerController get controller => widget.controller;
 
@@ -121,7 +121,7 @@ class _ProgressIndicatorState extends State<_ProgressIndicator> {
   Widget build(BuildContext context) {
     Widget progressIndicator;
     if (controller.value.initialized) {
-      final int duration = controller.value.duration.inMilliseconds;
+      final int duration = controller.value.duration?.inMilliseconds??0;
       final int position = controller.value.position.inMilliseconds;
 
       int maxBuffering = 0;
@@ -154,10 +154,10 @@ class _ProgressBarPainter extends CustomPainter {
   final double borderWidth;
 
   const _ProgressBarPainter(
-      {@required this.duration,
-      @required this.position,
-      @required this.maxBuffering,
-      @required this.colors,
+      {required this.duration,
+      required this.position,
+      required this.maxBuffering,
+      required this.colors,
       this.borderWidth = 5});
 
   @override
