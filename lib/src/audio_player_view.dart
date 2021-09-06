@@ -79,8 +79,8 @@ class AudioPlayerControllerProvider extends InheritedWidget {
   }
 
   static AudioPlayerController? of(BuildContext context) {
-    AudioPlayerControllerProvider? provider =
-        context.findAncestorWidgetOfExactType();
+    AudioPlayerControllerProvider? provider = context
+        .dependOnInheritedWidgetOfExactType<AudioPlayerControllerProvider>();
     return provider?.controller;
   }
 }
