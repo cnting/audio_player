@@ -22,6 +22,7 @@ import com.google.android.exoplayer2.offline.DownloadManager
 import com.google.android.exoplayer2.offline.DownloadRequest
 import com.google.android.exoplayer2.util.Log
 import java.io.IOException
+import java.lang.Exception
 import java.util.*
 import java.util.concurrent.CopyOnWriteArraySet
 
@@ -89,15 +90,20 @@ class AudioDownloadTracker(downloadManager: DownloadManager) {
 
     private inner class DownloadManagerListener : DownloadManager.Listener {
 
-        override fun onDownloadChanged(downloadManager: DownloadManager?, download: Download?) {
-            downloads[download!!.request.uri] = download
+
+        override fun onDownloadChanged(
+            downloadManager: DownloadManager,
+            download: Download,
+            finalException: Exception?
+        ) {
+            downloads[download.request.uri] = download
             for (listener in listeners) {
                 listener.onDownloadsChanged()
             }
         }
 
-        override fun onDownloadRemoved(downloadManager: DownloadManager?, download: Download?) {
-            downloads.remove(download!!.request.uri)
+        override fun onDownloadRemoved(downloadManager: DownloadManager, download: Download) {
+            downloads.remove(download.request.uri)
             for (listener in listeners) {
                 listener.onDownloadsChanged()
             }

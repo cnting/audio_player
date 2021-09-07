@@ -60,10 +60,10 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
 
     private constructor(registrar: Registrar) : this() {
         this.flutterState = FlutterState(
-                registrar.context(),
-                registrar.messenger(),
-                registrar::lookupKeyForAsset,
-                registrar::lookupKeyForAsset
+            registrar.context(),
+            registrar.messenger(),
+            registrar::lookupKeyForAsset,
+            registrar::lookupKeyForAsset
         )
         this.channel = MethodChannel(registrar.messenger(), channelName)
         channel?.setMethodCallHandler(this)
@@ -71,10 +71,15 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         this.flutterState = FlutterState(
-                binding.applicationContext,
-                binding.binaryMessenger,
-                { assets: String? -> FlutterMain.getLookupKeyForAsset(assets!!) },
-                { asset: String?, packageName: String? -> FlutterMain.getLookupKeyForAsset(asset!!, packageName!!) }
+            binding.applicationContext,
+            binding.binaryMessenger,
+            { assets: String? -> FlutterMain.getLookupKeyForAsset(assets!!) },
+            { asset: String?, packageName: String? ->
+                FlutterMain.getLookupKeyForAsset(
+                    asset!!,
+                    packageName!!
+                )
+            }
         )
         this.channel = MethodChannel(binding.flutterEngine.dartExecutor, channelName)
         this.channel?.setMethodCallHandler(this)
@@ -100,7 +105,10 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
             "init" -> disposeAllPlayers()
             "create" -> {
                 val id = System.currentTimeMillis().toString()
-                val eventChannel = EventChannel(flutterState!!.binaryMessenger, "cnting.com/audio_player/audioEvents$id")
+                val eventChannel = EventChannel(
+                    flutterState!!.binaryMessenger,
+                    "cnting.com/audio_player/audioEvents$id"
+                )
                 val player: AudioPlayer
                 var clipRange: List<Long>? = null
                 if (call.argument<Any?>("clipRange") != null) {
@@ -109,14 +117,14 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
                 val loopingTimes = call.argument<Int>("loopingTimes") ?: 0
                 val dataSource: String = getDataSource(call)
                 player = AudioPlayer(
-                        flutterState!!.applicationContext,
-                        id,
-                        eventChannel = eventChannel,
-                        dataSource = dataSource,
-                        result = result,
-                        clipRange = clipRange?.toMutableList(),
-                        loopingTimes = loopingTimes,
-                        audioDownloadManager = audioDownloadManager
+                    flutterState!!.applicationContext,
+                    id,
+                    eventChannel = eventChannel,
+                    dataSource = dataSource,
+                    result = result,
+                    clipRange = clipRange?.toMutableList(),
+                    loopingTimes = loopingTimes,
+                    audioDownloadManager = audioDownloadManager
                 )
                 audioPlayers[id] = player
                 val autoCache = call.argument<Boolean>("autoCache") ?: false
@@ -149,7 +157,10 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
     private fun getDataSource(call: MethodCall): String {
         return if (call.argument<Any?>("asset") != null) {
             val assetLookupKey = if (call.argument<Any?>("package") != null) {
-                flutterState!!.keyForAssetAndPackageName(call.argument("asset"), call.argument("package"))
+                flutterState!!.keyForAssetAndPackageName(
+                    call.argument("asset"),
+                    call.argument("package")
+                )
             } else {
                 flutterState!!.keyForAsset(call.argument("asset"))
             }
@@ -162,15 +173,22 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
     private fun checkPlayerId(playerId: String, result: Result, next: (AudioPlayer) -> Unit) {
         val audioPlayer = audioPlayers[playerId]
         if (audioPlayer == null) {
-            result.error("Unknown playerId",
-                    "No audio player associated with player id $playerId",
-                    null)
+            result.error(
+                "Unknown playerId",
+                "No audio player associated with player id $playerId",
+                null
+            )
             return
         }
         next(audioPlayer)
     }
 
-    private fun onMethodCall(call: MethodCall, result: Result, playerId: String, player: AudioPlayer) {
+    private fun onMethodCall(
+        call: MethodCall,
+        result: Result,
+        playerId: String,
+        player: AudioPlayer
+    ) {
         when (call.method) {
             "setLooping" -> {
                 player.setLooping(call.argument<Boolean>("looping")!!)
@@ -222,9 +240,11 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
 
 }
 
-class AudioPlayer(c: Context, private val playerId: String, private val eventChannel: EventChannel,
-                  dataSource: String, private val result: Result, val clipRange: MutableList<Long>?,
-                  private var loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager) {
+class AudioPlayer(
+    c: Context, private val playerId: String, private val eventChannel: EventChannel,
+    dataSource: String, private val result: Result, val clipRange: MutableList<Long>?,
+    private var loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager
+) {
 
     private lateinit var exoPlayer: SimpleExoPlayer
     private val eventSink = QueuingEventSink()
@@ -240,11 +260,15 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
     private fun setupAudioPlayer() {
         // TODO: LoadControl可以自定义缓冲策略
         val renderersFactory = AudioOnlyRenderersFactory(context)
-        exoPlayer = ExoPlayerFactory.newSimpleInstance(context, renderersFactory, DefaultTrackSelector(AdaptiveTrackSelection.Factory()))
-        exoPlayer.setAudioAttributes(AudioAttributes.Builder()
+        exoPlayer = SimpleExoPlayer.Builder(context, renderersFactory)
+            .setTrackSelector(DefaultTrackSelector(context, AdaptiveTrackSelection.Factory()))
+            .build()
+        exoPlayer.setAudioAttributes(
+            AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.CONTENT_TYPE_MUSIC)
-                .build(), true)
+                .build(), true
+        )
 
         resetMediaSource()
 
@@ -263,8 +287,10 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
         result.success(event)
     }
 
-    fun reset(dataSource: String, clipRange: List<Long>? = null,
-              loopingTimes: Int = 0) {
+    fun reset(
+        dataSource: String, clipRange: List<Long>? = null,
+        loopingTimes: Int = 0
+    ) {
         exoPlayer.stop(true)
         this.dataSourceUri = Uri.parse(dataSource)
         this.clipRange?.clear()
@@ -282,7 +308,11 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
 
         //set clip range
         if (clipRange != null) {
-            mediaSource = ClippingMediaSource(mediaSource, clipRange[0] * 1000, if (clipRange[1] < 0) C.TIME_END_OF_SOURCE else clipRange[1] * 1000)  //传入微秒
+            mediaSource = ClippingMediaSource(
+                mediaSource,
+                clipRange[0] * 1000,
+                if (clipRange[1] < 0) C.TIME_END_OF_SOURCE else clipRange[1] * 1000
+            )  //传入微秒
         }
 
         //set looping times
@@ -297,12 +327,12 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
 
     private fun buildMediaSource(): MediaSource {
         return ProgressiveMediaSource.Factory(audioDownloadManager.localDataSourceFactory)
-                .createMediaSource(dataSourceUri)
+            .createMediaSource(dataSourceUri)
     }
 
     private fun addExoPlayerListener() {
         var lastPlaybackState: Int = Player.STATE_IDLE
-        exoPlayer.addListener(object : Player.EventListener {
+        exoPlayer.addListener(object : Player.Listener {
             override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {
@@ -328,11 +358,10 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
                 lastPlaybackState = playbackState
             }
 
-            override fun onPlayerError(error: ExoPlaybackException?) {
-                error?.printStackTrace()
-                eventSink?.error("AudioError", "Audio player had error $error", error?.message)
+            override fun onPlayerError(error: PlaybackException) {
+                error.printStackTrace()
+                eventSink.error("AudioError", "Audio player had error $error", error?.message)
             }
-
         })
     }
 
@@ -430,16 +459,28 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
         if (isFileOrAsset(dataSourceUri)) {
             return
         }
-        val downloadRequest = DownloadRequest(playerId.toString(), DownloadRequest.TYPE_PROGRESSIVE, dataSourceUri, mutableListOf<StreamKey>(), null, downloadNotificationName.toByteArray())
-        DownloadService.sendAddDownload(context, AudioDownloadService::class.java, downloadRequest, true)
+        val downloadRequest = DownloadRequest.Builder(playerId,dataSourceUri)
+            .build()
+        DownloadService.sendAddDownload(
+            context,
+            AudioDownloadService::class.java,
+            downloadRequest,
+            true
+        )
         startRefreshProgressTask()
     }
 
     fun removeDownload() {
         val download = audioDownloadManager.downloadTracker.getDownload(dataSourceUri)
         if (download != null) {
-            DownloadService.sendRemoveDownload(context, AudioDownloadService::class.java, download.request.id, false)
-            audioDownloadManager.downloadTracker.addListener(object : AudioDownloadTracker.Listener {
+            DownloadService.sendRemoveDownload(
+                context,
+                AudioDownloadService::class.java,
+                download.request.id,
+                false
+            )
+            audioDownloadManager.downloadTracker.addListener(object :
+                AudioDownloadTracker.Listener {
                 override fun onDownloadsChanged() {
                     if (audioDownloadManager.downloadTracker.getDownloadState(dataSourceUri) == Download.STATE_QUEUED) {
                         sendDownloadState()
@@ -500,7 +541,8 @@ class AudioPlayer(c: Context, private val playerId: String, private val eventCha
         refreshProgressTimer = Timer()
         val timerTask: TimerTask = object : TimerTask() {
             override fun run() {
-                val download: Download? = audioDownloadManager.downloadTracker.getDownload(dataSourceUri)
+                val download: Download? =
+                    audioDownloadManager.downloadTracker.getDownload(dataSourceUri)
                 sendDownloadState()
                 if (download != null && download.isTerminalState) {
                     cancelRefreshProgressTimer()
@@ -531,10 +573,10 @@ private interface KeyForAssetAndPackageName {
 }
 
 private class FlutterState internal constructor(
-        val applicationContext: Context,
-        val binaryMessenger: BinaryMessenger,
-        val keyForAsset: (asset: String?) -> String?,
-        val keyForAssetAndPackageName: (asset: String?, packageName: String?) -> String?
+    val applicationContext: Context,
+    val binaryMessenger: BinaryMessenger,
+    val keyForAsset: (asset: String?) -> String?,
+    val keyForAssetAndPackageName: (asset: String?, packageName: String?) -> String?
 ) {
 //        fun startListening(methodCallHandler: io.flutter.plugins.videoplayer.VideoPlayerPlugin?, messenger: BinaryMessenger?) {
 //            VideoPlayerApi.setup(messenger, methodCallHandler)
