@@ -70,12 +70,12 @@ class TerminalStateNotificationHelper(
         finalException: Exception?
     ) {
         val notification: Notification = when (download.state) {
-            Download.STATE_COMPLETED -> notificationHelper.buildDownloadCompletedNotification(
-                context,
-                android.R.drawable.stat_sys_download_done,
-                /* contentIntent= */ null,
-                Util.fromUtf8Bytes(download.request.data)
-            )/* contentIntent= */
+//            Download.STATE_COMPLETED -> notificationHelper.buildDownloadCompletedNotification(
+//                context,
+//                android.R.drawable.stat_sys_download_done,
+//                /* contentIntent= */ null,
+//                Util.fromUtf8Bytes(download.request.data)
+//            )/* contentIntent= */
             Download.STATE_FAILED -> notificationHelper.buildDownloadFailedNotification(
                 context,
                 android.R.drawable.stat_notify_error, null,

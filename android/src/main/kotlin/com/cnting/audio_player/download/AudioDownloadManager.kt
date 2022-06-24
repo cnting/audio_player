@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import com.google.android.exoplayer2.database.DatabaseProvider
 import com.google.android.exoplayer2.database.ExoDatabaseProvider
+import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
 import com.google.android.exoplayer2.offline.DownloadManager
 import com.google.android.exoplayer2.ui.DownloadNotificationHelper
 import com.google.android.exoplayer2.upstream.*
@@ -58,7 +59,7 @@ class AudioDownloadManager private constructor(private val context: Context) {
     }
 
     private val databaseProvider: DatabaseProvider by lazy {
-        val p = ExoDatabaseProvider(context)
+        val p = StandaloneDatabaseProvider(context)
         p
     }
 
@@ -83,7 +84,7 @@ class AudioDownloadManager private constructor(private val context: Context) {
     }
 
     val localDataSourceFactory: DataSource.Factory by lazy {
-        val upstreamFactory = DefaultDataSourceFactory(context, buildHttpDataSourceFactory)
+        val upstreamFactory = DefaultDataSource.Factory(context, buildHttpDataSourceFactory)
         val factory = buildReadOnlyCacheDataSource(upstreamFactory, downloadCache)
         factory
     }
