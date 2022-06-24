@@ -18,19 +18,20 @@ import java.lang.Exception
  * 下载
  */
 class AudioDownloadService : DownloadService(
-        1,
-        DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
-        "download_channel",
-        R.string.download_channel_name,
-        R.string.download_channel_name_description
+    1,
+    DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
+    "download_channel",
+    R.string.download_channel_name,
+    R.string.download_channel_name_description
 ) {
 
     private val JOB_ID = 1
 
     override fun getDownloadManager(): DownloadManager {
-        val notificationHelper = AudioDownloadManager.getInstance(applicationContext).downloadNotificationHelper
+        val notificationHelper =
+            AudioDownloadManager.getInstance(applicationContext).downloadNotificationHelper
         val downloadManager = AudioDownloadManager.getInstance(applicationContext).downloadManager
-        downloadManager.addListener(TerminalStateNotificationHelper(this,notificationHelper))
+        downloadManager.addListener(TerminalStateNotificationHelper(this, notificationHelper))
         return downloadManager
     }
 
@@ -38,10 +39,22 @@ class AudioDownloadService : DownloadService(
         return if (Util.SDK_INT >= 21) PlatformScheduler(this, JOB_ID) else null
     }
 
-    override fun getForegroundNotification(downloads: MutableList<Download>): Notification {
-        val notificationHelper = AudioDownloadManager.getInstance(applicationContext).downloadNotificationHelper
-        return notificationHelper.buildProgressNotification(this,android.R.drawable.stat_sys_download, null, null, downloads)
+    override fun getForegroundNotification(
+        downloads: MutableList<Download>,
+        notMetRequirements: Int
+    ): Notification {
+        val notificationHelper =
+            AudioDownloadManager.getInstance(applicationContext).downloadNotificationHelper
+        return notificationHelper.buildProgressNotification(
+            this,
+            android.R.drawable.stat_sys_download,
+            null,
+            null,
+            downloads,
+            0
+        )
     }
+
 }
 
 class TerminalStateNotificationHelper(

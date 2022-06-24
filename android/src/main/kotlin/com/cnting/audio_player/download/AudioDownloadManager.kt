@@ -19,7 +19,6 @@ import java.util.concurrent.Executors
 class AudioDownloadManager private constructor(private val context: Context) {
 
     private val DOWNLOAD_CONTENT_DIRECTORY = "audio_downloads"
-    private val userAgent = Util.getUserAgent(context, "ExoPlayerDemo")
 
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -73,28 +72,30 @@ class AudioDownloadManager private constructor(private val context: Context) {
 
     private val downloadCache: Cache by lazy {
         val downloadContentDirectory = File(downloadDirectory, DOWNLOAD_CONTENT_DIRECTORY)
-        val downloadCache = SimpleCache(downloadContentDirectory, NoOpCacheEvictor(), databaseProvider)
+        val downloadCache =
+            SimpleCache(downloadContentDirectory, NoOpCacheEvictor(), databaseProvider)
         downloadCache
     }
 
     private val buildHttpDataSourceFactory: HttpDataSource.Factory by lazy {
-        val factory = DefaultHttpDataSourceFactory(userAgent)
+        val factory = DefaultHttpDataSource.Factory()
         factory
     }
 
-    val localDataSourceFactory:DataSource.Factory by lazy {
+    val localDataSourceFactory: DataSource.Factory by lazy {
         val upstreamFactory = DefaultDataSourceFactory(context, buildHttpDataSourceFactory)
         val factory = buildReadOnlyCacheDataSource(upstreamFactory, downloadCache)
         factory
     }
 
     private fun buildReadOnlyCacheDataSource(
-            upstreamFactory: DataSource.Factory,
-            cache: Cache
-    ): CacheDataSourceFactory {
-        return CacheDataSourceFactory(
-                cache, upstreamFactory, FileDataSourceFactory(), null, CacheDataSource.FLAG_BLOCK_ON_CACHE or CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR, null
-        )
+        upstreamFactory: DataSource.Factory,
+        cache: Cache
+    ): CacheDataSource.Factory {
+        return CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE or CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
 
