@@ -33,11 +33,6 @@ class AudioDownloadManager private constructor(private val context: Context) {
 
 
     val downloadManager: DownloadManager by lazy {
-//        val downloadIndex = DefaultDownloadIndex(databaseProvider)
-//        val downloaderConstructorHelper = DownloaderConstructorHelper(downloadCache, buildHttpDataSourceFactory)
-//        val downloadManager = DownloadManager(
-//                context, downloadIndex, DefaultDownloaderFactory(downloaderConstructorHelper)
-//        )
         val downloadManager = DownloadManager(
             context,
             databaseProvider,
@@ -83,7 +78,7 @@ class AudioDownloadManager private constructor(private val context: Context) {
         factory
     }
 
-    val localDataSourceFactory: DataSource.Factory by lazy {
+    val cacheDataSourceFactory: DataSource.Factory by lazy {
         val upstreamFactory = DefaultDataSource.Factory(context, buildHttpDataSourceFactory)
         val factory = buildReadOnlyCacheDataSource(upstreamFactory, downloadCache)
         factory
