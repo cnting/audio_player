@@ -12,7 +12,9 @@ import com.google.android.exoplayer2.audio.AudioAttributes
 import com.google.android.exoplayer2.offline.Download
 import com.google.android.exoplayer2.offline.DownloadRequest
 import com.google.android.exoplayer2.offline.DownloadService
+import com.google.android.exoplayer2.offline.StreamKey
 import com.google.android.exoplayer2.source.ClippingMediaSource
+import com.google.android.exoplayer2.source.LoopingMediaSource
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
@@ -26,6 +28,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry.Registrar
 import io.flutter.view.FlutterMain
+import io.flutter.view.TextureRegistry
 import java.util.*
 
 class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
@@ -122,8 +125,8 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
                     audioDownloadManager = audioDownloadManager
                 )
                 audioPlayers[id] = player
-//                val autoCache = call.argument<Boolean>("autoCache") ?: false
-//                player.initDownloadState(autoCache)
+                val autoCache = call.argument<Boolean>("autoCache") ?: false
+                player.initDownloadState(autoCache)
             }
             "reset" -> {
                 val playerId: String = call.argument<String>("playerId") ?: "0"
@@ -313,6 +316,7 @@ class AudioPlayer(
         //set looping times
         if (loopingTimes > 0) {
             val list = List(loopingTimes) { _ -> mediaSource }
+            Log.d("===>", "播放次数:" + list.size)
             exoPlayer.setMediaSources(list)
         } else if (loopingTimes < 0) {
             exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
@@ -324,7 +328,7 @@ class AudioPlayer(
     }
 
     private fun buildMediaSource(): MediaSource {
-        return ProgressiveMediaSource.Factory(audioDownloadManager.cacheDataSourceFactory)
+        return ProgressiveMediaSource.Factory(audioDownloadManager.localDataSourceFactory)
             .createMediaSource(MediaItem.fromUri(dataSourceUri))
     }
 

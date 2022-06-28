@@ -17,11 +17,8 @@ import java.lang.Exception
  * Created by cnting on 2019-08-05
  * 下载
  */
-
-private val FOREGROUND_NOTIFICATION_ID = 1
-
 class AudioDownloadService : DownloadService(
-    FOREGROUND_NOTIFICATION_ID,
+    1,
     DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
     "download_channel",
     R.string.download_channel_name,
@@ -34,18 +31,12 @@ class AudioDownloadService : DownloadService(
         val notificationHelper =
             AudioDownloadManager.getInstance(applicationContext).downloadNotificationHelper
         val downloadManager = AudioDownloadManager.getInstance(applicationContext).downloadManager
-        downloadManager.addListener(
-            TerminalStateNotificationHelper(
-                applicationContext,
-                notificationHelper,
-                FOREGROUND_NOTIFICATION_ID + 1
-            )
-        )
+        downloadManager.addListener(TerminalStateNotificationHelper(this, notificationHelper))
         return downloadManager
     }
 
     override fun getScheduler(): Scheduler? {
-        return if (Util.SDK_INT >= 21) PlatformScheduler(applicationContext, JOB_ID) else null
+        return if (Util.SDK_INT >= 21) PlatformScheduler(this, JOB_ID) else null
     }
 
     override fun getForegroundNotification(
@@ -60,7 +51,7 @@ class AudioDownloadService : DownloadService(
             null,
             null,
             downloads,
-            notMetRequirements
+            0
         )
     }
 
@@ -68,10 +59,10 @@ class AudioDownloadService : DownloadService(
 
 class TerminalStateNotificationHelper(
     private val context: Context,
-    private val notificationHelper: DownloadNotificationHelper,
-    private val firstNotificationId: Int
+    private val notificationHelper: DownloadNotificationHelper
 ) : DownloadManager.Listener {
-    private var nextNotificationId = firstNotificationId
+    private val FOREGROUND_NOTIFICATION_ID = 1
+    private var nextNotificationId = FOREGROUND_NOTIFICATION_ID + 1
 
     override fun onDownloadChanged(
         downloadManager: DownloadManager,
@@ -79,12 +70,12 @@ class TerminalStateNotificationHelper(
         finalException: Exception?
     ) {
         val notification: Notification = when (download.state) {
-            Download.STATE_COMPLETED -> notificationHelper.buildDownloadCompletedNotification(
-                context,
-                android.R.drawable.stat_sys_download_done,
-                /* contentIntent= */ null,
-                Util.fromUtf8Bytes(download.request.data)
-            )/* contentIntent= */
+//            Download.STATE_COMPLETED -> notificationHelper.buildDownloadCompletedNotification(
+//                context,
+//                android.R.drawable.stat_sys_download_done,
+//                /* contentIntent= */ null,
+//                Util.fromUtf8Bytes(download.request.data)
+//            )/* contentIntent= */
             Download.STATE_FAILED -> notificationHelper.buildDownloadFailedNotification(
                 context,
                 android.R.drawable.stat_notify_error, null,
