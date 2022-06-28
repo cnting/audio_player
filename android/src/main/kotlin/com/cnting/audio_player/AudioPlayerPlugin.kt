@@ -2,7 +2,6 @@ package com.cnting.audio_player
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import com.cnting.audio_player.download.AudioDownloadManager
 import com.cnting.audio_player.download.AudioDownloadService
 import com.cnting.audio_player.download.AudioDownloadTracker
@@ -26,6 +25,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry.Registrar
 import io.flutter.view.FlutterMain
+import java.lang.Deprecated
 import java.util.*
 
 class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
