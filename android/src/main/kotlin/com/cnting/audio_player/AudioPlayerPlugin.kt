@@ -35,8 +35,10 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
 
     private var audioPlayers = mutableMapOf<String, AudioPlayer>()
 
+    //    private val audioDownloadManager: AudioDownloadManager = AudioDownloadManager.getInstance(registrar.activeContext().applicationContext)
     private var flutterState: FlutterState? = null
     private var channel: MethodChannel? = null
+//    private var context:Context? = null
 
     companion object {
         const val channelName = "cnting.com/audio_player"
@@ -244,7 +246,7 @@ class AudioPlayer(
     private var loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager
 ) {
 
-    private lateinit var exoPlayer: ExoPlayer
+    private lateinit var exoPlayer: SimpleExoPlayer
     private val eventSink = QueuingEventSink()
     private var dataSourceUri: Uri = Uri.parse(dataSource)
     private var context: Context = c.applicationContext
@@ -258,13 +260,13 @@ class AudioPlayer(
     private fun setupAudioPlayer() {
         // TODO: LoadControl可以自定义缓冲策略
         val renderersFactory = AudioOnlyRenderersFactory(context)
-        exoPlayer = ExoPlayer.Builder(context, renderersFactory)
+        exoPlayer = SimpleExoPlayer.Builder(context, renderersFactory)
             .setTrackSelector(DefaultTrackSelector(context, AdaptiveTrackSelection.Factory()))
             .build()
         exoPlayer.setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .setContentType(C.CONTENT_TYPE_MUSIC)
                 .build(), true
         )
 
@@ -315,21 +317,17 @@ class AudioPlayer(
 
         //set looping times
         if (loopingTimes > 0) {
-            val list = List(loopingTimes) { _ -> mediaSource }
-            Log.d("===>", "播放次数:" + list.size)
-            exoPlayer.setMediaSources(list)
+            mediaSource = LoopingMediaSource(mediaSource, loopingTimes)
         } else if (loopingTimes < 0) {
             exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
-            exoPlayer.setMediaSource(mediaSource)
-        } else {
-            exoPlayer.setMediaSource(mediaSource)
         }
-        exoPlayer.prepare()
+
+        exoPlayer.prepare(mediaSource)
     }
 
     private fun buildMediaSource(): MediaSource {
         return ProgressiveMediaSource.Factory(audioDownloadManager.localDataSourceFactory)
-            .createMediaSource(MediaItem.fromUri(dataSourceUri))
+            .createMediaSource(dataSourceUri)
     }
 
     private fun addExoPlayerListener() {
@@ -403,7 +401,7 @@ class AudioPlayer(
 
     fun play() {
         if (exoPlayer.playbackState == Player.STATE_IDLE) {
-            exoPlayer.prepare()
+            exoPlayer.retry()
         } else if (exoPlayer.playbackState == Player.STATE_ENDED) {
             seekTo(0)
         }
@@ -461,7 +459,7 @@ class AudioPlayer(
         if (isFileOrAsset(dataSourceUri)) {
             return
         }
-        val downloadRequest = DownloadRequest.Builder(playerId, dataSourceUri)
+        val downloadRequest = DownloadRequest.Builder(playerId,dataSourceUri)
             .build()
         DownloadService.sendAddDownload(
             context,

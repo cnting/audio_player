@@ -5,7 +5,7 @@ import 'custom_controller.dart';
 
 void main() => runApp(MyApp());
 
-String url = 'http://music.163.com/song/media/outer/url?id=20110049.mp3';
+String url = 'http://music.163.com/song/media/outer/url?id=29561063.mp3';
 
 class MyApp extends StatelessWidget {
   @override
@@ -68,7 +68,7 @@ class _SimpleState extends State<_Simple> {
   @override
   void initState() {
     super.initState();
-    audioPlayerController = AudioPlayerController(DataSource.network(url), playConfig: PlayConfig(autoPlay: false));
+    audioPlayerController = AudioPlayerController(DataSource.network(url));
     audioPlayerController.addListener(() {
       print('===>listener:${audioPlayerController.value}');
     });
@@ -98,7 +98,7 @@ class _DownloadStateWidget extends StatefulWidget {
 }
 
 class _DownloadStateWidgetState extends State<_DownloadStateWidget> {
-  int downloadState = DownloadState.UNDOWNLOAD;
+  int downloadState =  DownloadState.UNDOWNLOAD;
   double downloadProgress = 0;
 
   @override
@@ -106,8 +106,10 @@ class _DownloadStateWidgetState extends State<_DownloadStateWidget> {
     super.initState();
     widget.audioPlayerController.downloadNotifier.addListener(() {
       setState(() {
-        downloadState = widget.audioPlayerController.downloadNotifier.value.state ?? 0;
-        downloadProgress = widget.audioPlayerController.downloadNotifier.value.progress ?? 0;
+        downloadState =
+            widget.audioPlayerController.downloadNotifier.value.state ?? 0;
+        downloadProgress =
+            widget.audioPlayerController.downloadNotifier.value.progress ?? 0;
       });
     });
   }
@@ -127,7 +129,8 @@ class _DownloadStateWidgetState extends State<_DownloadStateWidget> {
     return ElevatedButton(
       child: text,
       onPressed: () {
-        if (downloadState == DownloadState.UNDOWNLOAD || downloadState == DownloadState.ERROR) {
+        if (downloadState == DownloadState.UNDOWNLOAD ||
+            downloadState == DownloadState.ERROR) {
           widget.audioPlayerController.download('正在下载音频...');
         } else if (downloadState == DownloadState.COMPLETED) {
           widget.audioPlayerController.removeDownload();
@@ -155,7 +158,8 @@ class _ClipState extends State<_Clip> {
     super.initState();
     audioPlayerController = AudioPlayerController(DataSource.network(url),
         playConfig: PlayConfig(
-            clipRange: DurationRange.fromList([5 * 1000, if (widget.hasEndTime) 10 * 1000]),
+            clipRange: DurationRange.fromList(
+                [5 * 1000, if (widget.hasEndTime) 10 * 1000]),
             autoPlay: false,
             loopingTimes: 2));
   }
@@ -189,8 +193,9 @@ class _CustomControllerState extends State<_CustomController> {
   @override
   void initState() {
     super.initState();
-    audioPlayerController =
-        AudioPlayerController(DataSource.asset('assets/Utakata.mp3'), playConfig: PlayConfig(autoPlay: false));
+    audioPlayerController = AudioPlayerController(
+        DataSource.asset('assets/Utakata.mp3'),
+        playConfig: PlayConfig(autoPlay: false));
   }
 
   @override
@@ -223,7 +228,8 @@ class _DownloadItemState extends State<_DownloadItem> {
   void initState() {
     super.initState();
     audioPlayerController = AudioPlayerController(DataSource.network(url),
-        playConfig: PlayConfig(autoPlay: false, autoCache: true)); //set auto cache
+        playConfig:
+            PlayConfig(autoPlay: false, autoCache: true)); //set auto cache
   }
 
   @override
