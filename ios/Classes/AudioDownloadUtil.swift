@@ -34,6 +34,11 @@ class AudioDownloadUtil: NSObject {
         guard downloadUrl != nil else {
             return
         }
+        
+        if haveDesignatedUrlCache(with: url) {
+            return
+        }
+        
         if !urls.contains(url) {
             urls.append(url)
         }
@@ -42,11 +47,12 @@ class AudioDownloadUtil: NSObject {
         }
         designatedDownloadUrl = url
         let request = URLRequest.init(url: downloadUrl!)
-        if resumeData == nil {
-            task = urlSession.downloadTask(with: request)
-        } else {
-            task = urlSession.downloadTask(withResumeData: resumeData!)
-        }
+        task = urlSession.downloadTask(with: request)
+//        if resumeData == nil {
+//            task = urlSession.downloadTask(with: request)
+//        } else {
+//            task = urlSession.downloadTask(withResumeData: resumeData!)
+//        }
         task?.resume()
         resumeData = nil
         
