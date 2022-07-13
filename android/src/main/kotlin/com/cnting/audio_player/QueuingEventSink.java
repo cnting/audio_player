@@ -17,7 +17,7 @@ import io.flutter.plugin.common.EventChannel;
  * <p>This class is not thread-safe. All calls must be done on the same thread or synchronized
  * externally.
  */
-final class QueuingEventSink implements EventChannel.EventSink {
+public final class QueuingEventSink implements EventChannel.EventSink {
     private EventChannel.EventSink delegate;
     private CopyOnWriteArrayList<Object> eventQueue = new CopyOnWriteArrayList<>();
     private boolean done = false;

@@ -2,7 +2,6 @@ package com.cnting.audio_player
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import com.cnting.audio_player.download.AudioDownloadManager
 import com.cnting.audio_player.download.AudioDownloadService
 import com.cnting.audio_player.download.AudioDownloadTracker
@@ -12,7 +11,6 @@ import com.google.android.exoplayer2.audio.AudioAttributes
 import com.google.android.exoplayer2.offline.Download
 import com.google.android.exoplayer2.offline.DownloadRequest
 import com.google.android.exoplayer2.offline.DownloadService
-import com.google.android.exoplayer2.offline.StreamKey
 import com.google.android.exoplayer2.source.ClippingMediaSource
 import com.google.android.exoplayer2.source.LoopingMediaSource
 import com.google.android.exoplayer2.source.MediaSource
@@ -28,7 +26,6 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry.Registrar
 import io.flutter.view.FlutterMain
-import io.flutter.view.TextureRegistry
 import java.util.*
 
 class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
