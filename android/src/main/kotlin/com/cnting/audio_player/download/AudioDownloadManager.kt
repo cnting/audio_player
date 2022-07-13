@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import com.google.android.exoplayer2.database.DatabaseProvider
 import com.google.android.exoplayer2.database.ExoDatabaseProvider
+import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
 import com.google.android.exoplayer2.offline.DownloadManager
 import com.google.android.exoplayer2.ui.DownloadNotificationHelper
 import com.google.android.exoplayer2.upstream.*
@@ -19,7 +20,6 @@ import java.util.concurrent.Executors
 class AudioDownloadManager private constructor(private val context: Context) {
 
     private val DOWNLOAD_CONTENT_DIRECTORY = "audio_downloads"
-    private val userAgent = Util.getUserAgent(context, "ExoPlayerDemo")
 
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -33,11 +33,6 @@ class AudioDownloadManager private constructor(private val context: Context) {
 
 
     val downloadManager: DownloadManager by lazy {
-//        val downloadIndex = DefaultDownloadIndex(databaseProvider)
-//        val downloaderConstructorHelper = DownloaderConstructorHelper(downloadCache, buildHttpDataSourceFactory)
-//        val downloadManager = DownloadManager(
-//                context, downloadIndex, DefaultDownloaderFactory(downloaderConstructorHelper)
-//        )
         val downloadManager = DownloadManager(
             context,
             databaseProvider,
@@ -59,7 +54,7 @@ class AudioDownloadManager private constructor(private val context: Context) {
     }
 
     private val databaseProvider: DatabaseProvider by lazy {
-        val p = ExoDatabaseProvider(context)
+        val p = StandaloneDatabaseProvider(context)
         p
     }
 
@@ -78,12 +73,13 @@ class AudioDownloadManager private constructor(private val context: Context) {
     }
 
     private val buildHttpDataSourceFactory: HttpDataSource.Factory by lazy {
-        val factory = DefaultHttpDataSourceFactory(userAgent)
+        val factory = DefaultHttpDataSource.Factory()
         factory
     }
 
+
     val localDataSourceFactory:DataSource.Factory by lazy {
-        val upstreamFactory = DefaultDataSourceFactory(context, buildHttpDataSourceFactory)
+        val upstreamFactory = DefaultDataSource.Factory(context, buildHttpDataSourceFactory)
         val factory = buildReadOnlyCacheDataSource(upstreamFactory, downloadCache)
         factory
     }
@@ -91,10 +87,11 @@ class AudioDownloadManager private constructor(private val context: Context) {
     private fun buildReadOnlyCacheDataSource(
             upstreamFactory: DataSource.Factory,
             cache: Cache
-    ): CacheDataSourceFactory {
-        return CacheDataSourceFactory(
-                cache, upstreamFactory, FileDataSourceFactory(), null, CacheDataSource.FLAG_BLOCK_ON_CACHE or CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR, null
-        )
+    ): CacheDataSource.Factory {
+        return CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE or CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
 

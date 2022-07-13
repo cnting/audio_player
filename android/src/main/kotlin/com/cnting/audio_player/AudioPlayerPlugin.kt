@@ -124,8 +124,8 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
                     audioDownloadManager = audioDownloadManager
                 )
                 audioPlayers[id] = player
-                val autoCache = call.argument<Boolean>("autoCache") ?: false
-                player.initDownloadState(autoCache)
+//                val autoCache = call.argument<Boolean>("autoCache") ?: false
+//                player.initDownloadState(autoCache)
             }
             "reset" -> {
                 val playerId: String = call.argument<String>("playerId") ?: "0"
@@ -243,7 +243,7 @@ class AudioPlayer(
     private var loopingTimes: Int = 0, private val audioDownloadManager: AudioDownloadManager
 ) {
 
-    private lateinit var exoPlayer: SimpleExoPlayer
+    private lateinit var exoPlayer: ExoPlayer
     private val eventSink = QueuingEventSink()
     private var dataSourceUri: Uri = Uri.parse(dataSource)
     private var context: Context = c.applicationContext
@@ -255,15 +255,14 @@ class AudioPlayer(
     }
 
     private fun setupAudioPlayer() {
-        // TODO: LoadControl可以自定义缓冲策略
         val renderersFactory = AudioOnlyRenderersFactory(context)
-        exoPlayer = SimpleExoPlayer.Builder(context, renderersFactory)
+        exoPlayer = ExoPlayer.Builder(context, renderersFactory)
             .setTrackSelector(DefaultTrackSelector(context, AdaptiveTrackSelection.Factory()))
             .build()
         exoPlayer.setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.CONTENT_TYPE_MUSIC)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .build(), true
         )
 
@@ -324,7 +323,7 @@ class AudioPlayer(
 
     private fun buildMediaSource(): MediaSource {
         return ProgressiveMediaSource.Factory(audioDownloadManager.localDataSourceFactory)
-            .createMediaSource(dataSourceUri)
+            .createMediaSource(MediaItem.fromUri(dataSourceUri))
     }
 
     private fun addExoPlayerListener() {
