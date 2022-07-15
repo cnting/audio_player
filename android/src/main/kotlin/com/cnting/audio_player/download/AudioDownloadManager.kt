@@ -19,8 +19,6 @@ import java.util.concurrent.Executors
  */
 class AudioDownloadManager private constructor(private val context: Context) {
 
-    private val DOWNLOAD_CONTENT_DIRECTORY = "audio_downloads"
-
     companion object {
         @SuppressLint("StaticFieldLeak")
         @Volatile
@@ -67,7 +65,7 @@ class AudioDownloadManager private constructor(private val context: Context) {
     }
 
     private val downloadCache: Cache by lazy {
-        val downloadContentDirectory = File(downloadDirectory, DOWNLOAD_CONTENT_DIRECTORY)
+        val downloadContentDirectory = File(downloadDirectory, "audio_downloads")
         val downloadCache = SimpleCache(downloadContentDirectory, NoOpCacheEvictor(), databaseProvider)
         downloadCache
     }

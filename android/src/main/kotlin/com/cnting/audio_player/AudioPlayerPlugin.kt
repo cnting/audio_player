@@ -32,10 +32,8 @@ class AudioPlayerPlugin() : FlutterPlugin, MethodCallHandler {
 
     private var audioPlayers = mutableMapOf<String, AudioPlayer>()
 
-    //    private val audioDownloadManager: AudioDownloadManager = AudioDownloadManager.getInstance(registrar.activeContext().applicationContext)
     private var flutterState: FlutterState? = null
     private var channel: MethodChannel? = null
-//    private var context:Context? = null
 
     companion object {
         const val channelName = "cnting.com/audio_player"
@@ -313,12 +311,15 @@ class AudioPlayer(
 
         //set looping times
         if (loopingTimes > 0) {
-            mediaSource = LoopingMediaSource(mediaSource, loopingTimes)
+            exoPlayer.setMediaSources(List(loopingTimes) { mediaSource })
         } else if (loopingTimes < 0) {
             exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
+            exoPlayer.setMediaSource(mediaSource)
+        }else{
+            exoPlayer.setMediaSource(mediaSource)
         }
 
-        exoPlayer.prepare(mediaSource)
+        exoPlayer.prepare()
     }
 
     private fun buildMediaSource(): MediaSource {
@@ -455,7 +456,7 @@ class AudioPlayer(
         if (isFileOrAsset(dataSourceUri)) {
             return
         }
-        val downloadRequest = DownloadRequest.Builder(playerId,dataSourceUri)
+        val downloadRequest = DownloadRequest.Builder(playerId, dataSourceUri)
             .build()
         DownloadService.sendAddDownload(
             context,
@@ -560,15 +561,8 @@ class AudioPlayer(
 
 }
 
-private interface KeyForAssetFn {
-    operator fun get(asset: String?): String?
-}
 
-private interface KeyForAssetAndPackageName {
-    operator fun get(asset: String?, packageName: String?): String?
-}
-
-private class FlutterState internal constructor(
+private class FlutterState constructor(
     val applicationContext: Context,
     val binaryMessenger: BinaryMessenger,
     val keyForAsset: (asset: String?) -> String?,
