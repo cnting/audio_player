@@ -1,5 +1,6 @@
 name: audio_player_example
 description: Demonstrates how to use the audio_player plugin.
+version: 1.0.10
 publish_to: 'none'
 
 environment:

@@ -27,7 +27,6 @@ class AudioDownloadUtil: NSObject {
     private var resumeData: Data?
     private var urls: [String] = [String]()
     private var isDownloading: Bool = false
-    private var designatedDownloadUrl: String = ""
     
     public func startDownloadTask(with url: String) {
         let downloadUrl = URL.init(string: url)
@@ -45,7 +44,6 @@ class AudioDownloadUtil: NSObject {
         guard !isDownloading else {
             return
         }
-        designatedDownloadUrl = url
         let request = URLRequest.init(url: downloadUrl!)
         task = urlSession.downloadTask(with: request)
 //        if resumeData == nil {
@@ -138,14 +136,18 @@ extension AudioDownloadUtil: URLSessionDownloadDelegate {
             return
         }
         
-        let destination =  AudioPath.filePath + "\(self.designatedDownloadUrl.MD5())"
+        guard let url = downloadTask.originalRequest?.url?.absoluteString else {
+            return;
+        }
+        
+        let destination =  AudioPath.filePath + "\(url.MD5())"
         do {
             try FileManager.default.moveItem(atPath: location.path, toPath: destination)
             ///md5
             if urls.count != 0 {
                 for idx in 0..<urls.count {
                     let fileName = urls[idx]
-                    if fileName == self.designatedDownloadUrl {
+                    if fileName == url {
                         urls.remove(at: idx)
                         break
                     }
